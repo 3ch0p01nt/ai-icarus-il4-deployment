@@ -1,6 +1,6 @@
 # AI-Icarus Azure Government IL4 Deployment
 
-[![Deploy to Azure Government](https://aka.ms/deploytoazurebutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Frsoligan_microsoft%2Fai-icarus-il4-deployment%2Fmain%2Fdeployment%2Fazuredeploy.json)
+[![Deploy to Azure Government](https://aka.ms/deploytoazurebutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2F3ch0p01nt%2Fai-icarus-il4-deployment%2Fmain%2Fdeployment%2Fazuredeploy.json)
 
 ## Overview
 
