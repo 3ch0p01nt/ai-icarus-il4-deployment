@@ -530,6 +530,14 @@
       "type": "string",
       "value": "[variables('functionAppName')]"
     },
+    "functionAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2021-03-01', 'Full').identity.principalId]"
+    },
+    "webAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('webAppName')), '2021-03-01', 'Full').identity.principalId]"
+    },
     "keyVaultName": {
       "type": "string",
       "value": "[variables('keyVaultName')]"

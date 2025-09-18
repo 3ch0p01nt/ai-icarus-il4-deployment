@@ -135,6 +135,25 @@ The deployment automatically configures these environment variables:
 
 After deployment completes:
 
+#### Required: Configure RBAC Permissions
+
+The Function App's managed identity needs permissions to access resources:
+
+```powershell
+# Run this script to grant necessary permissions
+./scripts/configure-rbac.ps1 -ResourceGroupName "rg-ai-icarus-il4"
+```
+
+This script will:
+- Grant Reader role (for resource discovery)
+- Grant Log Analytics Reader role (for querying workspaces)
+- Grant Cognitive Services User role (for OpenAI access)
+- Set the AZURE_SUBSCRIPTION_ID automatically
+
+#### Optional: Configure User Authentication
+
+If you need user authentication (not just managed identity):
+
 1. **Access the Application**
    - Navigate to the Static Web App URL provided
    - Sign in with your Azure Government credentials

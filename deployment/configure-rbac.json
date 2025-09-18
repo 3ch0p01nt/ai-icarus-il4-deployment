@@ -1,0 +1,67 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "RBAC configuration for AI-Icarus Managed Identities"
+  },
+  "parameters": {
+    "functionAppPrincipalId": {
+      "type": "string",
+      "metadata": {
+        "description": "Principal ID of the Function App's managed identity"
+      }
+    },
+    "webAppPrincipalId": {
+      "type": "string",
+      "metadata": {
+        "description": "Principal ID of the Web App's managed identity"
+      }
+    }
+  },
+  "variables": {
+    "readerRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+    "logAnalyticsReaderRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '73c42c96-874c-492b-b04d-ab87d138a893')]",
+    "cognitiveServicesUserRoleId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[guid(subscription().subscriptionId, parameters('functionAppPrincipalId'), 'Reader')]",
+      "properties": {
+        "roleDefinitionId": "[variables('readerRoleId')]",
+        "principalId": "[parameters('functionAppPrincipalId')]",
+        "scope": "[subscription().id]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[guid(subscription().subscriptionId, parameters('functionAppPrincipalId'), 'LogAnalyticsReader')]",
+      "properties": {
+        "roleDefinitionId": "[variables('logAnalyticsReaderRoleId')]",
+        "principalId": "[parameters('functionAppPrincipalId')]",
+        "scope": "[subscription().id]",
+        "principalType": "ServicePrincipal"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[guid(subscription().subscriptionId, parameters('functionAppPrincipalId'), 'CognitiveServicesUser')]",
+      "properties": {
+        "roleDefinitionId": "[variables('cognitiveServicesUserRoleId')]",
+        "principalId": "[parameters('functionAppPrincipalId')]",
+        "scope": "[subscription().id]",
+        "principalType": "ServicePrincipal"
+      }
+    }
+  ],
+  "outputs": {
+    "message": {
+      "type": "string",
+      "value": "RBAC roles assigned to Managed Identity. The Function App now has Reader, Log Analytics Reader, and Cognitive Services User roles."
+    }
+  }
+}
