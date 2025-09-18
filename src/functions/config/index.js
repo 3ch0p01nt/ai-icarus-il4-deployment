@@ -90,6 +90,7 @@ module.exports = async function (context, req) {
     // Build configuration response
     const config = {
         environment: environment,
+        subscriptionId: process.env.AZURE_SUBSCRIPTION_ID || '',
         auth: {
             clientId: clientId,
             tenantId: tenantId,
