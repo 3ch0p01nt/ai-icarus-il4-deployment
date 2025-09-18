@@ -1,0 +1,125 @@
+{
+  "environments": {
+    "AzureCloud": {
+      "name": "Azure Public Cloud",
+      "management": "https://management.azure.com",
+      "authentication": "https://login.microsoftonline.com",
+      "graph": "https://graph.microsoft.com",
+      "logAnalytics": "https://api.loganalytics.io",
+      "logAnalyticsOds": "https://ods.opinsights.azure.com",
+      "cognitive": "https://cognitiveservices.azure.com",
+      "openAI": "openai.azure.com",
+      "portal": "https://portal.azure.com",
+      "storage": "core.windows.net",
+      "keyVault": "vault.azure.net"
+    },
+    "AzureUSGovernment": {
+      "name": "Azure US Government (GCC High)",
+      "management": "https://management.usgovcloudapi.net",
+      "authentication": "https://login.microsoftonline.us",
+      "graph": "https://graph.microsoft.us",
+      "logAnalytics": "https://api.loganalytics.us",
+      "logAnalyticsOds": "https://ods.opinsights.azure.us",
+      "cognitive": "https://cognitiveservices.azure.us",
+      "openAI": "openai.azure.us",
+      "portal": "https://portal.azure.us",
+      "storage": "core.usgovcloudapi.net",
+      "keyVault": "vault.usgovcloudapi.net"
+    },
+    "AzureDoD": {
+      "name": "Azure US Government (DoD IL4/IL5)",
+      "management": "https://management.usgovcloudapi.net",
+      "authentication": "https://login.microsoftonline.us",
+      "graph": "https://dod-graph.microsoft.us",
+      "logAnalytics": "https://api.loganalytics.us",
+      "logAnalyticsOds": "https://ods.opinsights.azure.us",
+      "cognitive": "https://cognitiveservices.azure.us",
+      "openAI": "openai.azure.us",
+      "portal": "https://portal.azure.us",
+      "storage": "core.usgovcloudapi.net",
+      "keyVault": "vault.usgovcloudapi.net"
+    }
+  },
+  "scopes": {
+    "AzureCloud": {
+      "management": "https://management.azure.com/.default",
+      "graph": "https://graph.microsoft.com/.default",
+      "logAnalytics": "https://api.loganalytics.io/.default",
+      "cognitive": "https://cognitiveservices.azure.com/.default",
+      "storage": "https://storage.azure.com/.default",
+      "keyVault": "https://vault.azure.net/.default"
+    },
+    "AzureUSGovernment": {
+      "management": "https://management.usgovcloudapi.net/.default",
+      "graph": "https://graph.microsoft.us/.default",
+      "logAnalytics": "https://api.loganalytics.us/.default",
+      "cognitive": "https://cognitiveservices.azure.us/.default",
+      "storage": "https://storage.azure.com/.default",
+      "keyVault": "https://vault.usgovcloudapi.net/.default"
+    },
+    "AzureDoD": {
+      "management": "https://management.usgovcloudapi.net/.default",
+      "graph": "https://dod-graph.microsoft.us/.default",
+      "logAnalytics": "https://api.loganalytics.us/.default",
+      "cognitive": "https://cognitiveservices.azure.us/.default",
+      "storage": "https://storage.azure.com/.default",
+      "keyVault": "https://vault.usgovcloudapi.net/.default"
+    }
+  },
+  "regions": {
+    "AzureUSGovernment": [
+      {
+        "name": "usgovvirginia",
+        "displayName": "US Gov Virginia",
+        "physicalLocation": "Virginia, USA"
+      },
+      {
+        "name": "usgovarizona",
+        "displayName": "US Gov Arizona",
+        "physicalLocation": "Arizona, USA"
+      },
+      {
+        "name": "usgovtexas",
+        "displayName": "US Gov Texas",
+        "physicalLocation": "Texas, USA"
+      }
+    ],
+    "AzureDoD": [
+      {
+        "name": "usdodcentral",
+        "displayName": "US DoD Central",
+        "physicalLocation": "Iowa, USA"
+      },
+      {
+        "name": "usdodeast",
+        "displayName": "US DoD East",
+        "physicalLocation": "Virginia, USA"
+      }
+    ]
+  },
+  "apiVersions": {
+    "management": "2021-04-01",
+    "graph": "v1.0",
+    "logAnalytics": "v1",
+    "cognitive": "2023-05-01",
+    "openAI": "2024-10-21",
+    "storage": "2021-09-01",
+    "keyVault": "7.3"
+  },
+  "securityRequirements": {
+    "IL4": {
+      "tlsVersion": "1.2",
+      "encryptionAtRest": true,
+      "encryptionInTransit": true,
+      "customerManagedKeys": true,
+      "networkIsolation": true,
+      "privateEndpoints": true,
+      "logRetentionDays": 365,
+      "auditLogging": true,
+      "complianceStandards": ["FedRAMP High", "NIST 800-171", "DFARS 252.204-7012"],
+      "dataClassification": "CUI",
+      "accessControl": "RBAC",
+      "mfaRequired": true
+    }
+  }
+}

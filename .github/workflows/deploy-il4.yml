@@ -1,0 +1,309 @@
+name: Deploy to Azure Government IL4
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Azure environment to deploy to'
+        required: true
+        default: 'AzureDoD'
+        type: choice
+        options:
+          - AzureUSGovernment
+          - AzureDoD
+      resourceGroup:
+        description: 'Resource group name'
+        required: true
+        default: 'rg-ai-icarus-il4'
+      appName:
+        description: 'Application name'
+        required: true
+        default: 'ai-icarus'
+      location:
+        description: 'Azure region'
+        required: true
+        default: 'usgovvirginia'
+        type: choice
+        options:
+          - usgovvirginia
+          - usgovarizona
+          - usdodcentral
+          - usdodeast
+
+env:
+  NODE_VERSION: '18.x'
+  DOTNET_VERSION: '6.0.x'
+
+jobs:
+  validate:
+    name: Validate Templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Validate ARM template
+        uses: azure/arm-deploy@v1
+        with:
+          deploymentMode: Validate
+          resourceGroupName: ${{ github.event.inputs.resourceGroup }}
+          template: ./deployment/azuredeploy.json
+          parameters: appName=${{ github.event.inputs.appName }} environment=${{ github.event.inputs.environment }}
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      staticWebAppUrl: ${{ steps.deploy.outputs.staticWebAppUrl }}
+      functionAppUrl: ${{ steps.deploy.outputs.functionAppUrl }}
+      functionAppName: ${{ steps.deploy.outputs.functionAppName }}
+      staticWebAppName: ${{ steps.deploy.outputs.staticWebAppName }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure Government
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_GOV }}
+          environment: usgovernment
+
+      - name: Create Resource Group
+        run: |
+          az group create \
+            --name ${{ github.event.inputs.resourceGroup }} \
+            --location ${{ github.event.inputs.location }}
+
+      - name: Deploy ARM Template
+        id: deploy
+        uses: azure/arm-deploy@v1
+        with:
+          resourceGroupName: ${{ github.event.inputs.resourceGroup }}
+          template: ./deployment/azuredeploy.json
+          parameters: |
+            appName=${{ github.event.inputs.appName }}
+            environment=${{ github.event.inputs.environment }}
+            location=${{ github.event.inputs.location }}
+
+      - name: Output deployment results
+        run: |
+          echo "Static Web App URL: ${{ steps.deploy.outputs.staticWebAppUrl }}"
+          echo "Function App URL: ${{ steps.deploy.outputs.functionAppUrl }}"
+          echo "Function App Name: ${{ steps.deploy.outputs.functionAppName }}"
+          echo "Static Web App Name: ${{ steps.deploy.outputs.staticWebAppName }}"
+
+  configure-aad:
+    name: Configure Azure AD
+    needs: deploy-infrastructure
+    runs-on: windows-latest
+    outputs:
+      clientId: ${{ steps.aad.outputs.clientId }}
+      tenantId: ${{ steps.aad.outputs.tenantId }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure Government
+        uses: azure/powershell@v1
+        with:
+          inlineScript: |
+            Connect-AzAccount -ServicePrincipal `
+              -Tenant ${{ secrets.AZURE_TENANT_ID }} `
+              -ApplicationId ${{ secrets.AZURE_CLIENT_ID }} `
+              -CertificateThumbprint ${{ secrets.AZURE_CERT_THUMBPRINT }} `
+              -Environment AzureUSGovernment
+          azPSVersion: 'latest'
+
+      - name: Configure Azure AD
+        id: aad
+        uses: azure/powershell@v1
+        with:
+          inlineScript: |
+            ./scripts/configure-aad.ps1 `
+              -AppName "${{ github.event.inputs.appName }}" `
+              -StaticWebAppUrl "${{ needs.deploy-infrastructure.outputs.staticWebAppUrl }}" `
+              -FunctionAppUrl "${{ needs.deploy-infrastructure.outputs.functionAppUrl }}" `
+              -Environment "${{ github.event.inputs.environment }}"
+          azPSVersion: 'latest'
+
+  update-configuration:
+    name: Update Configuration
+    needs: [deploy-infrastructure, configure-aad]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Update frontend configuration
+        run: |
+          # Create configuration file
+          cat > ./src/frontend/config.js << EOF
+          window.APP_CONFIG = {
+            clientId: '${{ needs.configure-aad.outputs.clientId }}',
+            tenantId: '${{ needs.configure-aad.outputs.tenantId }}',
+            functionAppUrl: '${{ needs.deploy-infrastructure.outputs.functionAppUrl }}',
+            environment: '${{ github.event.inputs.environment }}'
+          };
+          EOF
+
+      - name: Commit configuration changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ./src/frontend/config.js
+          git commit -m "Update configuration for ${{ github.event.inputs.environment }} deployment"
+          git push
+
+  deploy-functions:
+    name: Deploy Function App
+    needs: [deploy-infrastructure, update-configuration]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: main # Get latest with config updates
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd src/functions
+          npm ci
+
+      - name: Login to Azure Government
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_GOV }}
+          environment: usgovernment
+
+      - name: Deploy to Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ needs.deploy-infrastructure.outputs.functionAppName }}
+          package: ./src/functions
+
+      - name: Update Function App settings
+        run: |
+          az functionapp config appsettings set \
+            --name ${{ needs.deploy-infrastructure.outputs.functionAppName }} \
+            --resource-group ${{ github.event.inputs.resourceGroup }} \
+            --settings \
+              "AZURE_CLIENT_ID=${{ needs.configure-aad.outputs.clientId }}" \
+              "AZURE_TENANT_ID=${{ needs.configure-aad.outputs.tenantId }}" \
+              "STATIC_WEB_APP_URL=${{ needs.deploy-infrastructure.outputs.staticWebAppUrl }}"
+
+  deploy-static-web-app:
+    name: Deploy Static Web App
+    needs: [deploy-infrastructure, update-configuration]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: main # Get latest with config updates
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install and build
+        run: |
+          cd src/frontend
+          npm ci
+          npm run build
+
+      - name: Login to Azure Government
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS_GOV }}
+          environment: usgovernment
+
+      - name: Get deployment token
+        id: token
+        run: |
+          token=$(az staticwebapp secrets list \
+            --name ${{ needs.deploy-infrastructure.outputs.staticWebAppName }} \
+            --resource-group ${{ github.event.inputs.resourceGroup }} \
+            --query "properties.apiKey" -o tsv)
+          echo "::add-mask::$token"
+          echo "deployment_token=$token" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Static Web App
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.token.outputs.deployment_token }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "/src/frontend"
+          output_location: "/"
+          skip_app_build: true
+
+  validate-deployment:
+    name: Validate Deployment
+    needs: [deploy-functions, deploy-static-web-app]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure Government
+        uses: azure/powershell@v1
+        with:
+          inlineScript: |
+            Connect-AzAccount -ServicePrincipal `
+              -Tenant ${{ secrets.AZURE_TENANT_ID }} `
+              -ApplicationId ${{ secrets.AZURE_CLIENT_ID }} `
+              -CertificateThumbprint ${{ secrets.AZURE_CERT_THUMBPRINT }} `
+              -Environment AzureUSGovernment
+          azPSVersion: 'latest'
+
+      - name: Run validation script
+        uses: azure/powershell@v1
+        with:
+          inlineScript: |
+            ./scripts/validate-deployment.ps1 `
+              -ResourceGroupName "${{ github.event.inputs.resourceGroup }}" `
+              -AppName "${{ github.event.inputs.appName }}"
+          azPSVersion: 'latest'
+
+      - name: Upload validation results
+        uses: actions/upload-artifact@v3
+        with:
+          name: validation-results
+          path: validation-results.json
+
+  summary:
+    name: Deployment Summary
+    needs: [deploy-infrastructure, configure-aad, validate-deployment]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Print deployment summary
+        run: |
+          echo "🚀 Deployment Summary for AI-Icarus IL4"
+          echo "======================================="
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Resource Group: ${{ github.event.inputs.resourceGroup }}"
+          echo "Location: ${{ github.event.inputs.location }}"
+          echo ""
+          echo "Deployed Resources:"
+          echo "- Static Web App: ${{ needs.deploy-infrastructure.outputs.staticWebAppUrl }}"
+          echo "- Function App: ${{ needs.deploy-infrastructure.outputs.functionAppUrl }}"
+          echo ""
+          echo "Azure AD Configuration:"
+          echo "- Client ID: ${{ needs.configure-aad.outputs.clientId }}"
+          echo "- Tenant ID: ${{ needs.configure-aad.outputs.tenantId }}"
+          echo ""
+          echo "Next Steps:"
+          echo "1. Access your application at: ${{ needs.deploy-infrastructure.outputs.staticWebAppUrl }}"
+          echo "2. Sign in with your Azure Government credentials"
+          echo "3. Configure your Log Analytics and OpenAI resources"
+          echo ""
+          echo "For troubleshooting, check the validation results artifact."

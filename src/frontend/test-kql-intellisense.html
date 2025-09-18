@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KQL IntelliSense Test</title>
+    
+    <!-- Monaco Editor CSS -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+        }
+        
+        h1 {
+            color: #0078D4;
+        }
+        
+        #editor-container {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #0078D4;
+            border-radius: 4px;
+        }
+        
+        .instructions {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2d2d30;
+            border-radius: 4px;
+        }
+        
+        .instructions h2 {
+            color: #40a9ff;
+            margin-top: 0;
+        }
+        
+        .instructions ul {
+            line-height: 1.8;
+        }
+        
+        .instructions code {
+            background: #000;
+            padding: 2px 5px;
+            border-radius: 3px;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <h1>KQL IntelliSense Test</h1>
+    
+    <div class="instructions">
+        <h2>Test IntelliSense Features:</h2>
+        <ul>
+            <li>Type <code>Dev</code> and press <code>Ctrl+Space</code> to see table suggestions (DeviceEvents, DeviceProcessEvents, DeviceNetworkEvents)</li>
+            <li>Type <code>where</code> and press <code>Space</code> to see keyword highlighting</li>
+            <li>Type <code>ago(</code> to see function completion</li>
+            <li>Type <code>template:</code> to see query templates</li>
+            <li>After typing a table name like <code>DeviceEvents</code>, type <code>|</code> to continue the query</li>
+            <li>Try operators: <code>summarize</code>, <code>project</code>, <code>extend</code>, <code>join</code></li>
+            <li>Try functions: <code>count()</code>, <code>sum()</code>, <code>avg()</code>, <code>max()</code></li>
+        </ul>
+    </div>
+    
+    <div id="editor-container"></div>
+    
+    <!-- Monaco Editor Scripts -->
+    <script>var require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } };</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.nls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.js"></script>
+    
+    <script>
+        // Wait for Monaco to load
+        window.addEventListener('load', function() {
+            // Register KQL language
+            monaco.languages.register({ id: 'kusto' });
+            
+            // Define KQL syntax highlighting
+            monaco.languages.setMonarchTokensProvider('kusto', {
+                keywords: [
+                    'let', 'where', 'project', 'extend', 'summarize', 'join',
+                    'union', 'lookup', 'datatable', 'find', 'search', 'sort',
+                    'top', 'take', 'count', 'by', 'on', 'contains', 'startswith',
+                    'endswith', 'matches', 'regex', 'has', 'between', 'in',
+                    'and', 'or', 'not', 'distinct', 'mv-expand', 'mv-apply',
+                    'parse', 'render', 'as', 'asc', 'desc'
+                ],
+                operators: [
+                    '=', '>', '<', '!', '~', '==', '!=', '>=', '<=', '&&', '||'
+                ],
+                tokenizer: {
+                    root: [
+                        [/\/\/.*$/, 'comment'],
+                        [/"([^"\\]|\\.)*$/, 'string.invalid'],
+                        [/"/, 'string', '@string'],
+                        [/\d+/, 'number'],
+                        [/[a-zA-Z_][\w]*/, {
+                            cases: {
+                                '@keywords': 'keyword',
+                                '@default': 'identifier'
+                            }
+                        }],
+                        [/[{}()\[\]]/, 'delimiter'],
+                        [/[,;|]/, 'delimiter.punctuation']
+                    ],
+                    string: [
+                        [/[^\\"]+/, 'string'],
+                        [/\\./, 'string.escape'],
+                        [/"/, 'string', '@pop']
+                    ]
+                }
+            });
+            
+            // Register completion provider
+            monaco.languages.registerCompletionItemProvider('kusto', {
+                provideCompletionItems: function(model, position) {
+                    const word = model.getWordUntilPosition(position);
+                    const range = {
+                        startLineNumber: position.lineNumber,
+                        endLineNumber: position.lineNumber,
+                        startColumn: word.startColumn,
+                        endColumn: word.endColumn
+                    };
+                    
+                    const suggestions = [];
+                    
+                    // Add tables
+                    ['DeviceEvents', 'DeviceProcessEvents', 'DeviceNetworkEvents', 'SecurityEvent', 'Syslog'].forEach(table => {
+                        suggestions.push({
+                            label: table,
+                            kind: monaco.languages.CompletionItemKind.Class,
+                            insertText: table,
+                            range: range,
+                            detail: 'Table'
+                        });
+                    });
+                    
+                    // Add keywords
+                    ['where', 'project', 'extend', 'summarize', 'join', 'take', 'sort', 'count', 'by'].forEach(keyword => {
+                        suggestions.push({
+                            label: keyword,
+                            kind: monaco.languages.CompletionItemKind.Keyword,
+                            insertText: keyword,
+                            range: range,
+                            detail: 'KQL Keyword'
+                        });
+                    });
+                    
+                    // Add functions
+                    ['ago', 'now', 'datetime', 'bin', 'count', 'sum', 'avg', 'max', 'min'].forEach(func => {
+                        suggestions.push({
+                            label: func,
+                            kind: monaco.languages.CompletionItemKind.Function,
+                            insertText: func + '($1)',
+                            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                            range: range,
+                            detail: 'KQL Function'
+                        });
+                    });
+                    
+                    // Add templates
+                    suggestions.push({
+                        label: 'template:recent',
+                        kind: monaco.languages.CompletionItemKind.Snippet,
+                        insertText: '| where TimeGenerated > ago(1h)\n| take 100',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        range: range,
+                        detail: 'Template: Recent events'
+                    });
+                    
+                    return { suggestions: suggestions };
+                }
+            });
+            
+            // Create editor
+            const editor = monaco.editor.create(document.getElementById('editor-container'), {
+                value: 'DeviceEvents\n| where TimeGenerated > ago(1h)\n| project TimeGenerated, DeviceName, ActionType\n| take 10',
+                language: 'kusto',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: false },
+                fontSize: 14,
+                suggestOnTriggerCharacters: true,
+                quickSuggestions: true,
+                wordWrap: 'on'
+            });
+            
+            console.log('KQL IntelliSense Editor initialized successfully!');
+        });
+    </script>
+</body>
+</html>

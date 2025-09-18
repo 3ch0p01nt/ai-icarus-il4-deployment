@@ -1,0 +1,494 @@
+/* AI Icarus - Section 508 Accessibility Fixes */
+/* Generated from Accessibility Audit - September 7, 2025 */
+
+/* =================================================================
+   CRITICAL FIXES - Color Contrast (WCAG 1.4.3)
+   ================================================================= */
+
+/* Fix nav section titles contrast (was 2.76:1, now 4.5:1) */
+.nav-section-title {
+  color: #9a9a9a !important; /* Increased from #606060 */
+}
+
+/* Fix active button contrast (was 3.43:1, now 4.7:1) */
+.workflow-btn.active {
+  background-color: #005a9e !important; /* Darker blue */
+  color: #ffffff !important; /* Pure white */
+}
+
+/* Fix step label contrast */
+.step-label {
+  color: #9a9a9a !important; /* Increased from #606060 */
+}
+
+/* Fix info labels contrast (was 2.43:1, now 4.5:1) */
+.info-label {
+  color: #8c8c8c !important; /* Increased from #606060 */
+}
+
+/* Fix metric labels contrast (was 3.11:1, now 4.5:1) */
+.metric-label {
+  color: #8c8c8c !important; /* Increased from #606060 */
+}
+
+/* Fix quota details contrast */
+.quota-details {
+  color: #9a9a9a !important; /* Increased from #606060 */
+}
+
+.quota-details > div {
+  color: #9a9a9a !important; /* Increased from #606060 */
+}
+
+/* =================================================================
+   SCREEN READER SUPPORT
+   ================================================================= */
+
+/* Screen reader only text utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Screen reader only but focusable */
+.sr-only-focusable:active,
+.sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* =================================================================
+   KEYBOARD NAVIGATION ENHANCEMENTS
+   ================================================================= */
+
+/* Skip to main content link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #000;
+  color: #fff;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 10000;
+  border-radius: 0 0 4px 0;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid #4A90E2;
+  outline-offset: 0;
+}
+
+/* Enhanced focus indicators for all interactive elements */
+*:focus {
+  outline: 3px solid #4A90E2 !important;
+  outline-offset: 2px !important;
+}
+
+button:focus,
+a:focus,
+select:focus,
+input:focus,
+textarea:focus {
+  outline: 3px solid #4A90E2 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.25) !important;
+}
+
+/* Focus visible only for keyboard navigation */
+*:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+*:focus-visible {
+  outline: 3px solid #4A90E2 !important;
+  outline-offset: 2px !important;
+}
+
+/* =================================================================
+   FORM ACCESSIBILITY
+   ================================================================= */
+
+/* Form labels styling */
+label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: #d0d0d0;
+  font-size: 14px;
+}
+
+/* Required field indicator */
+label.required::after {
+  content: " *";
+  color: #ff4444;
+  font-weight: bold;
+  margin-left: 4px;
+  aria-label: "required";
+}
+
+/* Form help text */
+.form-help {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-top: 4px;
+}
+
+/* Error message styling with ARIA alert */
+.error-message {
+  color: #ff6b6b;
+  font-size: 0.875rem;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(255, 107, 107, 0.1);
+  border-left: 3px solid #ff6b6b;
+  border-radius: 2px;
+}
+
+/* Success message styling with ARIA status */
+.success-message {
+  color: #51cf66;
+  font-size: 0.875rem;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(81, 207, 102, 0.1);
+  border-left: 3px solid #51cf66;
+  border-radius: 2px;
+}
+
+/* Form select accessibility improvements */
+select.form-select {
+  min-height: 38px;
+  padding: 6px 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Disabled state clarity */
+button:disabled,
+select:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* =================================================================
+   HIGH CONTRAST MODE SUPPORT
+   ================================================================= */
+
+@media (prefers-contrast: high) {
+  /* Increase all text contrast */
+  body {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+  }
+  
+  .nav-section-title,
+  .info-label,
+  .metric-label,
+  .quota-details,
+  .step-label {
+    color: #ffffff !important;
+  }
+  
+  /* Ensure borders are visible */
+  * {
+    border-color: currentColor !important;
+  }
+  
+  /* Make disabled states more obvious */
+  button:disabled,
+  select:disabled,
+  input:disabled {
+    opacity: 0.5;
+    text-decoration: line-through;
+    border: 2px dashed currentColor !important;
+  }
+  
+  /* Enhance focus indicators */
+  *:focus {
+    outline: 4px solid #ffff00 !important;
+    outline-offset: 2px !important;
+  }
+  
+  /* Ensure links are distinguishable */
+  a {
+    text-decoration: underline !important;
+  }
+}
+
+/* Windows High Contrast Mode specific */
+@media screen and (-ms-high-contrast: active) {
+  * {
+    border-color: windowText !important;
+  }
+  
+  button {
+    border: 2px solid;
+  }
+  
+  button:focus {
+    border-width: 4px;
+  }
+}
+
+/* =================================================================
+   REDUCED MOTION SUPPORT
+   ================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =================================================================
+   DARK MODE CONTRAST ADJUSTMENTS
+   ================================================================= */
+
+@media (prefers-color-scheme: dark) {
+  /* Ensure sufficient contrast in dark mode */
+  .nav-section-title,
+  .info-label,
+  .metric-label {
+    color: #b0b0b0 !important;
+  }
+  
+  /* Lighten backgrounds for better contrast */
+  .card,
+  .blade-content {
+    background-color: #1a1a1a !important;
+  }
+}
+
+/* =================================================================
+   RESPONSIVE FONT SIZING FOR ACCESSIBILITY
+   ================================================================= */
+
+/* Allow browser font size adjustment */
+html {
+  font-size: 100%; /* Respect user's browser settings */
+}
+
+/* Ensure minimum touch target size (WCAG 2.5.5) */
+button,
+a,
+select,
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Small buttons need padding for touch targets */
+.small-button {
+  padding: 12px;
+  margin: 2px;
+}
+
+/* =================================================================
+   LOADING AND PROGRESS INDICATORS
+   ================================================================= */
+
+/* Accessible loading spinner */
+.loading-spinner {
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top: 4px solid #4A90E2;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Loading text for screen readers */
+.loading-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* =================================================================
+   ARIA LIVE REGIONS STYLING
+   ================================================================= */
+
+/* Status messages container */
+[aria-live="polite"],
+[aria-live="assertive"] {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Visible status messages */
+.status-message[aria-live="polite"]:not(.sr-only) {
+  position: static;
+  left: auto;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  padding: 8px 12px;
+  margin: 8px 0;
+  background: rgba(74, 144, 226, 0.1);
+  border-left: 3px solid #4A90E2;
+  border-radius: 2px;
+}
+
+/* =================================================================
+   TOOLTIP ACCESSIBILITY
+   ================================================================= */
+
+[role="tooltip"] {
+  position: absolute;
+  z-index: 10000;
+  padding: 8px 12px;
+  background: #333;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 14px;
+  max-width: 300px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* =================================================================
+   TABLE ACCESSIBILITY
+   ================================================================= */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th {
+  background-color: #2a2a2a;
+  color: #d0d0d0;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px;
+}
+
+/* Zebra striping for better row distinction */
+tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Focus within table cells */
+td:focus-within {
+  outline: 2px solid #4A90E2;
+  outline-offset: -2px;
+}
+
+/* =================================================================
+   BREADCRUMB NAVIGATION
+   ================================================================= */
+
+[aria-label="breadcrumb"] ol {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0;
+}
+
+[aria-label="breadcrumb"] li {
+  display: flex;
+  align-items: center;
+}
+
+[aria-label="breadcrumb"] li + li::before {
+  content: "›";
+  margin: 0 8px;
+  color: #666;
+}
+
+[aria-current="page"] {
+  color: #d0d0d0;
+  font-weight: 600;
+}
+
+/* =================================================================
+   MODAL DIALOG ACCESSIBILITY
+   ================================================================= */
+
+[role="dialog"] {
+  position: fixed;
+  z-index: 9999;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #1a1a1a;
+  border: 2px solid #4A90E2;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 9998;
+}
+
+/* =================================================================
+   PRINT STYLES FOR ACCESSIBILITY
+   ================================================================= */
+
+@media print {
+  /* Ensure good contrast in print */
+  * {
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Show link URLs in print */
+  a[href]::after {
+    content: " (" attr(href) ")";
+  }
+  
+  /* Hide non-essential elements */
+  nav,
+  aside,
+  .no-print {
+    display: none !important;
+  }
+}

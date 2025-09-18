@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KQL Editor Focus Issue Test</title>
+    
+    <!-- React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Monaco Editor -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.css">
+    <script>var require = { paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs' } };</script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.nls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4fc3f7;
+            margin-bottom: 20px;
+        }
+        
+        .editor-wrapper {
+            height: 250px;
+            border: 2px solid #0e639c;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .status {
+            background: #2d2d30;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .focus-log {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 5px;
+        }
+        
+        .log-focus-gained {
+            color: #4ec9b0;
+            background: rgba(78, 201, 176, 0.1);
+        }
+        
+        .log-focus-lost {
+            color: #f48771;
+            background: rgba(244, 135, 113, 0.1);
+        }
+        
+        .log-change {
+            color: #dcdcaa;
+        }
+        
+        .log-render {
+            color: #c586c0;
+        }
+        
+        .test-controls {
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 8px 16px;
+            margin: 0 5px;
+            background: #0e639c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #1177bb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>KQL Editor Focus Issue Reproduction</h1>
+        
+        <div class="status">
+            <h2>Issue Description</h2>
+            <p>The KQL editor loses focus after typing each character, requiring a mouse click to continue typing.</p>
+            <p>This test page reproduces the exact component structure from the main application.</p>
+        </div>
+        
+        <div id="root"></div>
+        
+        <div class="status">
+            <h2>Focus Event Log</h2>
+            <div id="focus-log" class="focus-log">
+                <div class="log-entry">Waiting for events...</div>
+            </div>
+        </div>
+        
+        <div class="test-controls">
+            <button onclick="clearLog()">Clear Log</button>
+            <button onclick="testTyping()">Test Automated Typing</button>
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, memo } = React;
+        
+        let logCounter = 0;
+        const logEvent = (type, message) => {
+            const logDiv = document.getElementById('focus-log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${++logCounter}] ${new Date().toLocaleTimeString()}.${Date.now() % 1000} - ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+
+        // EXACT COPY of the KQL Editor from index.html
+        const KQLEditor = memo(({ value, onChange, placeholder, workspaceSchema, disabled }) => {
+            const editorRef = useRef(null);
+            const monacoRef = useRef(null);
+            const containerRef = useRef(null);
+            const isInitializedRef = useRef(false);
+            const isInternalChangeRef = useRef(false);
+            const lastExternalValueRef = useRef(value);
+            const cursorPositionRef = useRef(null);
+            const selectionRef = useRef(null);
+
+            // Initialize Monaco Editor only once
+            useEffect(() => {
+                if (!containerRef.current || isInitializedRef.current) return;
+                if (typeof monaco === 'undefined') return;
+
+                logEvent('render', 'Initializing Monaco editor');
+                isInitializedRef.current = true;
+
+                // Register KQL language
+                if (!monaco.languages.getLanguages().some(lang => lang.id === 'kusto')) {
+                    monaco.languages.register({ id: 'kusto' });
+                }
+
+                // Create the editor instance
+                editorRef.current = monaco.editor.create(containerRef.current, {
+                    value: value || '',
+                    language: 'kusto',
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: 'on',
+                    wordWrap: 'on',
+                    suggestOnTriggerCharacters: true,
+                    quickSuggestions: {
+                        other: true,
+                        comments: false,
+                        strings: false
+                    },
+                    formatOnPaste: false,
+                    formatOnType: false,
+                    scrollBeyondLastLine: false,
+                    readOnly: disabled,
+                    renderValidationDecorations: 'on',
+                    fixedOverflowWidgets: true
+                });
+
+                // Handle value changes
+                let changeTimeout = null;
+                editorRef.current.onDidChangeModelContent((e) => {
+                    if (isInternalChangeRef.current) {
+                        isInternalChangeRef.current = false;
+                        return;
+                    }
+
+                    const newValue = editorRef.current.getValue();
+                    logEvent('change', `Content changed: "${newValue}" (${newValue.length} chars)`);
+                    
+                    cursorPositionRef.current = editorRef.current.getPosition();
+                    selectionRef.current = editorRef.current.getSelection();
+                    
+                    if (changeTimeout) {
+                        clearTimeout(changeTimeout);
+                    }
+                    
+                    changeTimeout = setTimeout(() => {
+                        if (onChange && typeof onChange === 'function') {
+                            logEvent('change', 'Calling onChange callback');
+                            requestAnimationFrame(() => {
+                                onChange(newValue);
+                            });
+                        }
+                    }, 500);
+                });
+                
+                // Focus tracking
+                editorRef.current.onDidFocusEditorText(() => {
+                    logEvent('focus-gained', 'Editor gained focus');
+                    if (containerRef.current) {
+                        containerRef.current.dataset.focused = 'true';
+                    }
+                });
+                
+                editorRef.current.onDidBlurEditorText(() => {
+                    logEvent('focus-lost', 'Editor lost focus');
+                    setTimeout(() => {
+                        if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
+                            containerRef.current.dataset.focused = 'false';
+                        }
+                    }, 0);
+                });
+
+                monacoRef.current = monaco;
+                lastExternalValueRef.current = value;
+
+                return () => {
+                    if (editorRef.current) {
+                        editorRef.current.dispose();
+                        editorRef.current = null;
+                        isInitializedRef.current = false;
+                    }
+                };
+            }, []); // Empty deps
+
+            // Handle external value changes
+            useEffect(() => {
+                if (!editorRef.current || !isInitializedRef.current) return;
+                
+                if (value !== lastExternalValueRef.current) {
+                    const currentValue = editorRef.current.getValue();
+                    
+                    const isTemplateChange = 
+                        (value && value.includes('DeviceEvents\n')) ||
+                        (value && value.includes('DeviceProcessEvents\n')) ||
+                        (value && value.includes('DeviceNetworkEvents\n')) ||
+                        value === 'search * | take 10' ||
+                        (value === '' && currentValue.length > 20) ||
+                        (Math.abs((value?.length || 0) - currentValue.length) > 50);
+                    
+                    if (isTemplateChange) {
+                        logEvent('render', `Template change detected: "${value}"`);
+                        isInternalChangeRef.current = true;
+                        
+                        const hadFocus = editorRef.current.hasTextFocus();
+                        const position = editorRef.current.getPosition();
+                        
+                        editorRef.current.setValue(value || '');
+                        
+                        if (hadFocus) {
+                            requestAnimationFrame(() => {
+                                editorRef.current.focus();
+                                if (position) {
+                                    editorRef.current.setPosition(position);
+                                }
+                            });
+                        }
+                        
+                        lastExternalValueRef.current = value;
+                    }
+                }
+            }, [value]);
+
+            // Handle disabled state
+            useEffect(() => {
+                if (editorRef.current && isInitializedRef.current) {
+                    editorRef.current.updateOptions({ readOnly: disabled });
+                }
+            }, [disabled]);
+
+            return (
+                <div 
+                    ref={containerRef}
+                    style={{ 
+                        width: '100%', 
+                        height: '250px',
+                        border: '2px solid #0e639c',
+                        borderRadius: '4px',
+                        position: 'relative'
+                    }}
+                    aria-label="KQL Query Editor"
+                    suppressContentEditableWarning={true}
+                    data-monaco-container="true"
+                />
+            );
+        }, (prevProps, nextProps) => {
+            const shouldSkipRender = 
+                prevProps.disabled === nextProps.disabled &&
+                prevProps.workspaceSchema === nextProps.workspaceSchema &&
+                prevProps.placeholder === nextProps.placeholder;
+            
+            if (!shouldSkipRender) {
+                logEvent('render', 'Component will re-render due to prop changes');
+            }
+            
+            return shouldSkipRender;
+        });
+
+        // Parent component that reproduces the issue
+        function TestApp() {
+            const [kqlQuery, setKqlQuery] = useState('search * | take 10');
+            const kqlQueryRef = useRef(kqlQuery);
+            const [renderCount, setRenderCount] = useState(0);
+            
+            // Log renders
+            useEffect(() => {
+                logEvent('render', `Parent component rendered (count: ${renderCount + 1})`);
+                setRenderCount(prev => prev + 1);
+            });
+            
+            // Memoized callback - EXACT COPY from index.html
+            const handleKqlQueryChange = useCallback((newQuery) => {
+                logEvent('change', `handleKqlQueryChange called with: "${newQuery}"`);
+                kqlQueryRef.current = newQuery;
+                setKqlQuery(newQuery);
+            }, []);
+            
+            return (
+                <div>
+                    <h2>KQL Query Editor (Reproduction of Main App)</h2>
+                    
+                    <div className="editor-wrapper">
+                        <KQLEditor 
+                            value={kqlQuery}
+                            onChange={handleKqlQueryChange}
+                            placeholder="Enter your KQL query here..."
+                            workspaceSchema={null}
+                            disabled={false}
+                        />
+                    </div>
+                    
+                    <div className="status">
+                        <strong>Current Query:</strong> {kqlQuery}<br/>
+                        <strong>Length:</strong> {kqlQuery.length} characters<br/>
+                        <strong>Parent Renders:</strong> {renderCount}
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TestApp />);
+        
+        // Helper functions for testing
+        window.clearLog = function() {
+            const logDiv = document.getElementById('focus-log');
+            logDiv.innerHTML = '<div class="log-entry">Log cleared</div>';
+            logCounter = 0;
+        };
+        
+        window.testTyping = async function() {
+            logEvent('test', 'Starting automated typing test');
+            const editor = document.querySelector('[role="textbox"]');
+            if (editor) {
+                editor.click();
+                await new Promise(r => setTimeout(r, 500));
+                
+                // Simulate typing
+                const testText = 'DeviceEvents';
+                for (let char of testText) {
+                    const event = new KeyboardEvent('keydown', { key: char });
+                    editor.dispatchEvent(event);
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                
+                logEvent('test', 'Automated typing test completed');
+            } else {
+                logEvent('test', 'Editor not found');
+            }
+        };
+    </script>
+</body>
+</html>

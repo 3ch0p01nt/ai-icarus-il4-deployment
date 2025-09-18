@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Icarus - PowerShell-Inspired Blade Navigation</title>
+    
+    <!-- React and Babel for JSX transformation -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* CSS Variables for Dark Theme */
+        :root {
+            --bg-primary: #0c0c0c;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #606060;
+            --border-primary: #333;
+            --border-secondary: #444;
+            --azure-blue: #0078D4;
+            --azure-dark: #005a9e;
+            --azure-light: #40a9ff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --header-height: 60px;
+            --sidebar-width: 280px;
+            --status-panel-width: 320px;
+        }
+
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* App Container */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--azure-dark) 0%, var(--azure-blue) 100%);
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: baseline;
+            gap: 15px;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-subtitle {
+            font-size: 14px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* Main Container */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            height: calc(100vh - var(--header-height));
+        }
+
+        /* Navigation Sidebar */
+        .nav-sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-primary);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .nav-section {
+            margin-bottom: 25px;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .workflow-btn {
+            width: 100%;
+            padding: 12px 15px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .workflow-btn:hover {
+            background: var(--azure-dark);
+            border-color: var(--azure-blue);
+        }
+
+        .workflow-btn.active {
+            background: var(--azure-blue);
+            border-color: var(--azure-light);
+        }
+
+        .workflow-steps {
+            margin-left: 35px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+
+        .step-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .step-btn {
+            display: block;
+            width: 100%;
+            padding: 8px 12px;
+            background: transparent;
+            border: 1px solid var(--border-secondary);
+            border-radius: 3px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            margin-bottom: 5px;
+            text-align: left;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .step-btn:hover:not(:disabled) {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .step-btn.active {
+            background: var(--azure-dark);
+            color: white;
+            border-color: var(--azure-blue);
+        }
+
+        .step-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background: var(--bg-primary);
+        }
+
+        /* Status Panel */
+        .status-panel {
+            width: var(--status-panel-width);
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-primary);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        /* Session Info */
+        .session-info {
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-item {
+            margin-bottom: 10px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 3px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .info-value.success {
+            color: var(--success);
+        }
+
+        .info-value.error {
+            color: var(--error);
+        }
+
+        /* Token Budget */
+        .token-budget {
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .budget-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .budget-label {
+            color: var(--text-secondary);
+        }
+
+        .budget-value {
+            color: var(--azure-light);
+            font-weight: 600;
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .metric-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Activity Status */
+        .activity-status {
+            padding: 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .activity-status.active {
+            border-color: var(--azure-blue);
+            color: var(--azure-light);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* Blade Content */
+        .blade-content {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .blade-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-primary);
+        }
+
+        .blade-icon {
+            font-size: 32px;
+        }
+
+        .blade-title-section h2 {
+            font-size: 20px;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+        }
+
+        .blade-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Sections */
+        .section {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-select, .form-input, .form-textarea {
+            width: 100%;
+            padding: 10px;
+            background: #FFFFFF;
+            color: #000000;
+            border: 2px solid var(--azure-dark);
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-select:focus, .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--azure-light);
+        }
+
+        .form-textarea {
+            min-height: 200px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            resize: vertical;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--azure-dark);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--azure-blue);
+        }
+
+        .btn-primary:disabled {
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: white;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Messages */
+        .success-message, .error-message, .warning-message {
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .warning-message {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--warning);
+            color: var(--warning);
+        }
+
+        /* Loading States */
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid var(--border-primary);
+            border-top-color: var(--azure-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Results Container */
+        .results-container {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .results-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .results-content {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-secondary);
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .results-content pre {
+            margin: 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Query Results */
+        .query-results {
+            max-height: 400px;
+            overflow-y: auto;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-secondary);
+            border-radius: 4px;
+            padding: 15px;
+        }
+
+        /* Quota Info */
+        .quota-info {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-secondary);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .quota-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+        }
+
+        .quota-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--azure-light);
+            margin-bottom: 8px;
+        }
+
+        .quota-details {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-primary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        const AIIcarusApp = () => {
+            // State management
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [userAccount, setUserAccount] = useState(null);
+            const [activeWorkflow, setActiveWorkflow] = useState('azure');
+            const [activeSubBlade, setActiveSubBlade] = useState('setup');
+            const [workspaces, setWorkspaces] = useState([]);
+            const [selectedWorkspace, setSelectedWorkspace] = useState(null);
+            const [openAIResources, setOpenAIResources] = useState([]);
+            const [selectedResource, setSelectedResource] = useState(null);
+            const [selectedDeployment, setSelectedDeployment] = useState(null);
+            const [deployments, setDeployments] = useState([]);
+            const [kqlQuery, setKqlQuery] = useState('search * | take 10');
+            const [queryResults, setQueryResults] = useState(null);
+            const [aiPrompt, setAiPrompt] = useState('');
+            const [aiData, setAiData] = useState('');
+            const [aiResults, setAiResults] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const [isDiscovering, setIsDiscovering] = useState(false);
+            const [stats, setStats] = useState({
+                totalWorkspaces: 0,
+                totalResources: 0,
+                tokensUsed: 0,
+                chunksProcessed: 0
+            });
+
+            // Workflow states
+            const [workflowStatus, setWorkflowStatus] = useState({
+                azure: {
+                    setup: 'pending',
+                    query: 'locked',
+                    analysis: 'locked',
+                    review: 'locked'
+                },
+                localFile: {
+                    select: 'pending',
+                    chunking: 'locked',
+                    results: 'locked'
+                },
+                m365: {
+                    list: 'pending',
+                    detail: 'locked',
+                    insights: 'locked'
+                }
+            });
+
+            // Initialize authentication state from Azure Static Web Apps
+            useEffect(() => {
+                const initAuth = async () => {
+                    setLoading(true);
+                    try {
+                        // Fetch user details from Azure Static Web Apps auth endpoint
+                        const response = await fetch('/.auth/me');
+                        const data = await response.json();
+                        
+                        if (data && data.clientPrincipal) {
+                            // User is authenticated via Azure Static Web Apps
+                            const user = data.clientPrincipal;
+                            setUserAccount({
+                                username: user.userDetails,
+                                userId: user.userId,
+                                identityProvider: user.identityProvider,
+                                userRoles: user.userRoles,
+                                claims: user.claims
+                            });
+                            setIsAuthenticated(true);
+                            console.log('User authenticated via Azure Static Web Apps:', user.userDetails);
+                            
+                            // Automatically discover resources on login
+                            setTimeout(() => discoverAllResources(), 500);
+                        } else {
+                            // This should not happen with forced auth in staticwebapp.config.json
+                            setError('Authentication required. Redirecting to login...');
+                            window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(window.location.pathname);
+                        }
+                    } catch (error) {
+                        console.error('Failed to fetch auth status:', error);
+                        setError('Failed to verify authentication status');
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+
+                initAuth();
+            }, []);
+
+            // Get access token from Azure Static Web Apps
+            const getAccessToken = async () => {
+                try {
+                    // For Azure Static Web Apps, we need to get the token from the auth endpoint
+                    const response = await fetch('/.auth/me');
+                    const data = await response.json();
+                    
+                    if (data && data.clientPrincipal) {
+                        // Return the user's identity for backend to use
+                        return data.clientPrincipal;
+                    }
+                    throw new Error('No authentication token available');
+                } catch (error) {
+                    console.error('Failed to get access token:', error);
+                    throw error;
+                }
+            };
+
+            // Logout handler
+            const handleLogout = () => {
+                window.location.href = '/.auth/logout?post_logout_redirect_uri=/';
+            };
+
+            // Discover workspaces with better error handling
+            const discoverWorkspaces = async () => {
+                if (isDiscovering) {
+                    console.log('Discovery already in progress, skipping...');
+                    return;
+                }
+                
+                setIsDiscovering(true);
+                setLoading(true);
+                setError(null);
+                
+                try {
+                    const authData = await getAccessToken();
+                    const response = await fetch('https://ai-icarus-dev1-func.azurewebsites.net/api/workspaces', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-MS-CLIENT-PRINCIPAL': btoa(JSON.stringify(authData))
+                        },
+                        body: JSON.stringify({})
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            throw new Error('You do not have permission to access Log Analytics workspaces. Please contact your administrator.');
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    if (data.workspaces && data.workspaces.length > 0) {
+                        setWorkspaces(data.workspaces);
+                        setStats(prev => ({ ...prev, totalWorkspaces: data.workspaces.length }));
+                        
+                        // Auto-select first workspace if available
+                        if (!selectedWorkspace) {
+                            setSelectedWorkspace(data.workspaces[0]);
+                            setWorkflowStatus(prev => ({
+                                ...prev,
+                                azure: { ...prev.azure, query: 'pending' }
+                            }));
+                        }
+                    } else {
+                        setWorkspaces([]);
+                        setStats(prev => ({ ...prev, totalWorkspaces: 0 }));
+                        console.log('No workspaces available for this user');
+                    }
+                } catch (error) {
+                    console.error('Error fetching workspaces:', error);
+                    setWorkspaces([]);
+                    setStats(prev => ({ ...prev, totalWorkspaces: 0 }));
+                } finally {
+                    setLoading(false);
+                    setIsDiscovering(false);
+                }
+            };
+
+            // Discover OpenAI resources
+            const discoverOpenAIResources = async () => {
+                if (isDiscovering) {
+                    console.log('Discovery already in progress, skipping...');
+                    return;
+                }
+                
+                setIsDiscovering(true);
+                setLoading(true);
+                setError(null);
+                
+                try {
+                    const authData = await getAccessToken();
+                    const response = await fetch('https://ai-icarus-dev1-func.azurewebsites.net/api/openai/resources', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-MS-CLIENT-PRINCIPAL': btoa(JSON.stringify(authData))
+                        },
+                        body: JSON.stringify({})
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            console.log('No OpenAI resource permissions (non-critical)');
+                        } else {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                    } else {
+                        const data = await response.json();
+                        if (data.resources && data.resources.length > 0) {
+                            setOpenAIResources(data.resources);
+                            setStats(prev => ({ ...prev, totalResources: data.resources.length }));
+                        } else {
+                            setOpenAIResources([]);
+                            setStats(prev => ({ ...prev, totalResources: 0 }));
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching OpenAI resources:', error);
+                    console.log('OpenAI resource discovery failed (non-critical)');
+                    setOpenAIResources([]);
+                    setStats(prev => ({ ...prev, totalResources: 0 }));
+                } finally {
+                    setLoading(false);
+                    setIsDiscovering(false);
+                }
+            };
+
+            // Discover all resources sequentially
+            const discoverAllResources = async () => {
+                console.log('Starting resource discovery...');
+                await discoverWorkspaces();
+                // Small delay to avoid overwhelming the API
+                setTimeout(() => {
+                    discoverOpenAIResources();
+                }, 1000);
+            };
+
+            // Execute KQL query
+            const executeQuery = async () => {
+                if (!selectedWorkspace || !kqlQuery) {
+                    setError('Please select a workspace and enter a query');
+                    return;
+                }
+
+                setLoading(true);
+                setError(null);
+                
+                try {
+                    const authData = await getAccessToken();
+                    const response = await fetch('https://ai-icarus-dev1-func.azurewebsites.net/api/kql/execute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-MS-CLIENT-PRINCIPAL': btoa(JSON.stringify(authData))
+                        },
+                        body: JSON.stringify({
+                            workspaceId: selectedWorkspace.workspaceId,
+                            query: kqlQuery
+                        })
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            throw new Error('You do not have permission to query this workspace');
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    setQueryResults(data);
+                    
+                    // Enable AI analysis step if we have results
+                    if (data.rowCount > 0) {
+                        setWorkflowStatus(prev => ({
+                            ...prev,
+                            azure: { ...prev.azure, analysis: 'pending' }
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Query execution error:', error);
+                    setError(`Failed to execute query: ${error.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Render blade content based on active workflow and sub-blade
+            const renderBladeContent = () => {
+                // Show loading state while checking authentication
+                if (loading && !isAuthenticated) {
+                    return (
+                        <div className="blade-content">
+                            <div className="loading-container">
+                                <div className="loading-spinner"></div>
+                                <div style={{ marginTop: '20px' }}>Authenticating with Azure...</div>
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (activeWorkflow === 'azure' && activeSubBlade === 'setup') {
+                    return (
+                        <div className="blade-content">
+                            {error && (
+                                <div className="error-message">
+                                    <span>❌</span>
+                                    <div>
+                                        <div style={{ fontWeight: 'bold' }}>Error</div>
+                                        <div>{error}</div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="blade-header">
+                                <div className="blade-icon">☁️</div>
+                                <div className="blade-title-section">
+                                    <h2>Azure Setup</h2>
+                                    <div className="blade-description">Your available Azure resources based on RBAC permissions</div>
+                                </div>
+                            </div>
+
+                            <div className="section">
+                                <h3 className="section-title">Azure Environment</h3>
+                                <div className="success-message">
+                                    <span>✅</span>
+                                    <div>
+                                        <div>Connected to Azure</div>
+                                        <div style={{ fontSize: '12px' }}>Logged in as: {userAccount?.username}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="section">
+                                <h3 className="section-title">Available Resources</h3>
+                                
+                                {isDiscovering ? (
+                                    <div className="loading-container" style={{ padding: '20px' }}>
+                                        <div className="loading-spinner"></div>
+                                        <div style={{ marginTop: '10px', fontSize: '14px' }}>Discovering resources based on your permissions...</div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="form-group">
+                                            <label className="form-label">Log Analytics Workspaces</label>
+                                            {workspaces.length === 0 ? (
+                                                <div className="warning-message">
+                                                    <span>⚠️</span>
+                                                    <div>
+                                                        <div>No workspaces available</div>
+                                                        <div style={{ fontSize: '12px' }}>You don't have access to any Log Analytics workspaces. Contact your administrator for access.</div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <select 
+                                                    className="form-select"
+                                                    value={selectedWorkspace?.workspaceId || ''}
+                                                    onChange={(e) => {
+                                                        const workspace = workspaces.find(w => w.workspaceId === e.target.value);
+                                                        setSelectedWorkspace(workspace);
+                                                        if (workspace) {
+                                                            setWorkflowStatus(prev => ({
+                                                                ...prev,
+                                                                azure: { ...prev.azure, query: 'pending' }
+                                                            }));
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="">-- Select Workspace --</option>
+                                                    {workspaces.map(workspace => (
+                                                        <option key={workspace.workspaceId} value={workspace.workspaceId}>
+                                                            {workspace.workspaceName} ({workspace.resourceGroup})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">OpenAI Resources</label>
+                                            {openAIResources.length === 0 ? (
+                                                <div className="warning-message">
+                                                    <span>ℹ️</span>
+                                                    <div>
+                                                        <div>No OpenAI resources available</div>
+                                                        <div style={{ fontSize: '12px' }}>You don't have access to any Azure OpenAI resources.</div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <select 
+                                                    className="form-select"
+                                                    value={selectedResource?.id || ''}
+                                                    onChange={(e) => {
+                                                        const resource = openAIResources.find(r => r.id === e.target.value);
+                                                        setSelectedResource(resource);
+                                                    }}
+                                                >
+                                                    <option value="">-- Select Resource --</option>
+                                                    {openAIResources.map(resource => (
+                                                        <option key={resource.id} value={resource.id}>
+                                                            {resource.name} ({resource.location})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    );
+                }
+
+                if (activeWorkflow === 'azure' && activeSubBlade === 'query') {
+                    return (
+                        <div className="blade-content">
+                            <div className="blade-header">
+                                <div className="blade-icon">📊</div>
+                                <div className="blade-title-section">
+                                    <h2>KQL Query</h2>
+                                    <div className="blade-description">Execute Kusto queries on Log Analytics data</div>
+                                </div>
+                            </div>
+
+                            <div className="section">
+                                <h3 className="section-title">Query Configuration</h3>
+                                
+                                <div className="form-group">
+                                    <label className="form-label">Selected Workspace</label>
+                                    <div style={{ padding: '10px', background: 'var(--bg-primary)', borderRadius: '4px' }}>
+                                        <strong>{selectedWorkspace?.workspaceName}</strong>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                                            {selectedWorkspace?.resourceGroup} | {selectedWorkspace?.location}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">KQL Query</label>
+                                    <textarea 
+                                        className="form-textarea"
+                                        value={kqlQuery}
+                                        onChange={(e) => setKqlQuery(e.target.value)}
+                                        placeholder="Enter your KQL query here..."
+                                    />
+                                </div>
+
+                                <button 
+                                    className="btn btn-primary"
+                                    onClick={executeQuery}
+                                    disabled={loading || !selectedWorkspace || !kqlQuery}
+                                >
+                                    {loading ? (
+                                        <>
+                                            <div className="loading-spinner"></div>
+                                            Executing...
+                                        </>
+                                    ) : (
+                                        '▶️ Execute Query'
+                                    )}
+                                </button>
+                            </div>
+
+                            {queryResults && (
+                                <div className="results-container">
+                                    <div className="results-header">
+                                        <div className="results-title">Query Results</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                            {queryResults.rowCount} rows returned in {queryResults.executionTime?.toFixed(2)}s
+                                        </div>
+                                    </div>
+                                    <div className="results-content">
+                                        <pre>{JSON.stringify(queryResults.result, null, 2)}</pre>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+
+                // Default content for other blades
+                return (
+                    <div className="blade-content">
+                        <div className="section">
+                            <h3>{activeWorkflow} - {activeSubBlade}</h3>
+                            <p style={{ color: 'var(--text-secondary)' }}>
+                                This blade is under development.
+                            </p>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="app-container">
+                    <header className="header">
+                        <div className="header-title">
+                            <h1>
+                                <span style={{ fontSize: '28px' }}>🚀</span>
+                                AI Icarus
+                            </h1>
+                            <div className="header-subtitle">PowerShell-Inspired Navigation</div>
+                        </div>
+                    </header>
+
+                    <div className="main-container">
+                        <nav className="nav-sidebar">
+                            <div className="nav-section">
+                                <div className="nav-section-title">WORKFLOWS</div>
+                                
+                                <button 
+                                    className={`workflow-btn ${activeWorkflow === 'azure' ? 'active' : ''}`}
+                                    onClick={() => setActiveWorkflow('azure')}
+                                >
+                                    <span>🔷</span>
+                                    Azure Analytics
+                                </button>
+                                
+                                {activeWorkflow === 'azure' && (
+                                    <div className="workflow-steps">
+                                        <div className="step-label">Azure Workflow Steps:</div>
+                                        <button 
+                                            className={`step-btn ${activeSubBlade === 'setup' ? 'active' : ''}`}
+                                            onClick={() => setActiveSubBlade('setup')}
+                                        >
+                                            1. Setup
+                                        </button>
+                                        <button 
+                                            className={`step-btn ${activeSubBlade === 'query' ? 'active' : ''}`}
+                                            onClick={() => setActiveSubBlade('query')}
+                                            disabled={workflowStatus.azure.query === 'locked'}
+                                        >
+                                            2. KQL Query
+                                        </button>
+                                        <button 
+                                            className={`step-btn ${activeSubBlade === 'analysis' ? 'active' : ''}`}
+                                            onClick={() => setActiveSubBlade('analysis')}
+                                            disabled={workflowStatus.azure.analysis === 'locked'}
+                                        >
+                                            3. AI Analysis
+                                        </button>
+                                        <button 
+                                            className={`step-btn ${activeSubBlade === 'review' ? 'active' : ''}`}
+                                            onClick={() => setActiveSubBlade('review')}
+                                            disabled={workflowStatus.azure.review === 'locked'}
+                                        >
+                                            4. Review
+                                        </button>
+                                    </div>
+                                )}
+
+                                <button 
+                                    className={`workflow-btn ${activeWorkflow === 'localFile' ? 'active' : ''}`}
+                                    onClick={() => setActiveWorkflow('localFile')}
+                                >
+                                    <span>📄</span>
+                                    Local File Analytics
+                                </button>
+
+                                <button 
+                                    className={`workflow-btn ${activeWorkflow === 'm365' ? 'active' : ''}`}
+                                    onClick={() => setActiveWorkflow('m365')}
+                                >
+                                    <span>🛡️</span>
+                                    M365 Defender
+                                </button>
+                            </div>
+
+                            <div className="nav-section">
+                                <div className="nav-section-title">WORKFLOW STATUS</div>
+                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    Ready to begin
+                                </div>
+                                <div style={{ 
+                                    marginTop: '10px', 
+                                    padding: '8px', 
+                                    background: 'var(--bg-tertiary)', 
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    color: 'var(--success)'
+                                }}>
+                                    RBAC-Based Access: ACTIVE
+                                </div>
+                            </div>
+                        </nav>
+
+                        <div className="content-area">
+                            <main className="main-content">
+                                {renderBladeContent()}
+                            </main>
+
+                            <aside className="status-panel">
+                                <div className="session-info">
+                                    <h3 className="info-title">
+                                        <span>💻</span>
+                                        Session Info
+                                    </h3>
+                                    <div className="info-item">
+                                        <div className="info-label">Connection Status</div>
+                                        <div className={`info-value ${isAuthenticated ? 'success' : 'error'}`}>
+                                            {isAuthenticated ? 'Connected to Azure' : 'Not Connected'}
+                                        </div>
+                                    </div>
+                                    {userAccount && (
+                                        <div className="info-item">
+                                            <div className="info-label">Identity Provider</div>
+                                            <div className="info-value">{userAccount.identityProvider || 'Azure AD'}</div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="session-info">
+                                    <h3 className="info-title">
+                                        <span>💰</span>
+                                        TPM Quota Limits
+                                    </h3>
+                                    <div className="quota-info">
+                                        <div className="quota-title">Tenant TPM Quota</div>
+                                        <div className="quota-value">60,000</div>
+                                        <div className="quota-details">
+                                            <div>Tenant quota detected</div>
+                                            <div>Subscription: 60,000 TPM (Global) - $2 detected from 1 deployment(s)</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="token-budget">
+                                    <div className="budget-item">
+                                        <span className="budget-label">Token Budget: 128,000 total</span>
+                                    </div>
+                                    <div className="budget-item">
+                                        <span className="budget-label">Available for Data:</span>
+                                        <span className="budget-value">45,000</span>
+                                    </div>
+                                    <div className="budget-item">
+                                        <span className="budget-label">System Overhead:</span>
+                                        <span className="budget-value">4,200</span>
+                                    </div>
+                                    <div className="budget-item">
+                                        <span className="budget-label">Output Reserved:</span>
+                                        <span className="budget-value">4,096</span>
+                                    </div>
+                                </div>
+
+                                <div className="metrics-grid">
+                                    <div className="metric-card">
+                                        <div className="metric-label">Workspaces</div>
+                                        <div className="metric-value">{stats.totalWorkspaces}</div>
+                                    </div>
+                                    <div className="metric-card">
+                                        <div className="metric-label">Resources</div>
+                                        <div className="metric-value">{stats.totalResources}</div>
+                                    </div>
+                                </div>
+
+                                <div className="session-info">
+                                    <h3 className="info-title">
+                                        <span>⚡</span>
+                                        System Resources
+                                    </h3>
+                                    <div className="metrics-grid">
+                                        <div className="metric-card">
+                                            <div className="metric-label">CPU</div>
+                                            <div className="metric-value">28.0%</div>
+                                        </div>
+                                        <div className="metric-card">
+                                            <div className="metric-label">Memory</div>
+                                            <div className="metric-value">396 MB</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="session-info">
+                                    <h3 className="info-title">
+                                        <span>📊</span>
+                                        Activity Status
+                                    </h3>
+                                    <div className={`activity-status ${loading ? 'active' : ''}`}>
+                                        {loading ? 'Processing...' : 'Ready'}
+                                    </div>
+                                </div>
+
+                                {isAuthenticated && (
+                                    <button className="btn btn-danger" onClick={handleLogout} style={{ width: '100%', marginTop: '20px' }}>
+                                        <span>🚪</span>
+                                        Logout
+                                    </button>
+                                )}
+                            </aside>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AIIcarusApp />);
+    </script>
+</body>
+</html>

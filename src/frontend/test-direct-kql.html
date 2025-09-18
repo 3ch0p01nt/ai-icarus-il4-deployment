@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct KQL Editor Test</title>
+    
+    <!-- React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Monaco Editor -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.css">
+    <script>var require = { paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs' } };</script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.nls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4fc3f7;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            background: #2d2d30;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .template-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .template-button {
+            padding: 8px 16px;
+            background: #0e639c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .template-button:hover {
+            background: #1177bb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Direct KQL Editor Test - From index.html</h1>
+        
+        <div class="status">
+            <p>This page loads the EXACT KQL Editor component from index.html to test focus issues.</p>
+            <p>Type characters to see if focus is lost after each keystroke.</p>
+        </div>
+        
+        <div id="root"></div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, memo } = React;
+
+        // EXACT COPY of KQLEditor from index.html (with the recent fixes)
+        const KQLEditor = memo(({ value, onChange, placeholder, workspaceSchema, disabled }) => {
+            const editorRef = useRef(null);
+            const monacoRef = useRef(null);
+            const containerRef = useRef(null);
+            const isInitializedRef = useRef(false);
+            const isInternalChangeRef = useRef(false);
+            const lastExternalValueRef = useRef(value);
+            const cursorPositionRef = useRef(null);
+            const selectionRef = useRef(null);
+            const changeTimeoutRef = useRef(null);
+
+            // Initialize Monaco Editor only once
+            useEffect(() => {
+                if (!containerRef.current || isInitializedRef.current) return;
+                if (typeof monaco === 'undefined') return;
+
+                // Mark as initialized immediately to prevent double initialization
+                isInitializedRef.current = true;
+                
+                // Register KQL language if not already registered
+                if (!monaco.languages.getLanguages().some(lang => lang.id === 'kusto')) {
+                    // Register Kusto/KQL language
+                    monaco.languages.register({ id: 'kusto' });
+                }
+
+                // Create the editor instance with optimized settings
+                editorRef.current = monaco.editor.create(containerRef.current, {
+                    value: value || '',
+                    language: 'kusto',
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: 'on',
+                    wordWrap: 'on',
+                    suggestOnTriggerCharacters: true,
+                    quickSuggestions: {
+                        other: true,
+                        comments: false,
+                        strings: false
+                    },
+                    parameterHints: {
+                        enabled: true
+                    },
+                    suggest: {
+                        snippetsPreventQuickSuggestions: false,
+                        showKeywords: true,
+                        showSnippets: true
+                    },
+                    // Disable auto-formatting to prevent focus issues
+                    formatOnPaste: false,
+                    formatOnType: false,
+                    scrollBeyondLastLine: false,
+                    readOnly: disabled,
+                    // Additional options to help with focus
+                    renderValidationDecorations: 'on',
+                    fixedOverflowWidgets: true
+                });
+
+                // Handle value changes without causing focus loss
+                editorRef.current.onDidChangeModelContent((e) => {
+                    // Skip if this is an external change
+                    if (isInternalChangeRef.current) {
+                        isInternalChangeRef.current = false;
+                        return;
+                    }
+
+                    const newValue = editorRef.current.getValue();
+                    
+                    // Store cursor position
+                    cursorPositionRef.current = editorRef.current.getPosition();
+                    selectionRef.current = editorRef.current.getSelection();
+                    
+                    // Clear existing timeout
+                    if (changeTimeoutRef.current) {
+                        clearTimeout(changeTimeoutRef.current);
+                    }
+                    
+                    // Debounce the onChange call
+                    changeTimeoutRef.current = setTimeout(() => {
+                        if (onChange && typeof onChange === 'function') {
+                            // Use requestAnimationFrame to ensure DOM is ready
+                            requestAnimationFrame(() => {
+                                onChange(newValue);
+                            });
+                        }
+                    }, 500); // Increased debounce for better stability
+                });
+                
+                // Preserve focus on editor
+                editorRef.current.onDidFocusEditorText(() => {
+                    // Store that editor has focus
+                    if (containerRef.current) {
+                        containerRef.current.dataset.focused = 'true';
+                    }
+                    console.log('Editor gained focus');
+                });
+                
+                editorRef.current.onDidBlurEditorText(() => {
+                    // Only mark as blurred if actually losing focus to outside element
+                    setTimeout(() => {
+                        if (containerRef.current && !containerRef.current.contains(document.activeElement)) {
+                            containerRef.current.dataset.focused = 'false';
+                        }
+                    }, 0);
+                    console.log('Editor lost focus');
+                });
+
+                monacoRef.current = monaco;
+                
+                // Store the initial value
+                lastExternalValueRef.current = value;
+
+            // Cleanup
+            return () => {
+                if (changeTimeoutRef.current) {
+                    clearTimeout(changeTimeoutRef.current);
+                }
+                if (editorRef.current) {
+                    editorRef.current.dispose();
+                    editorRef.current = null;
+                    isInitializedRef.current = false;
+                }
+            };
+            }, []); // Empty deps - only run once on mount
+
+            // Handle external value changes (templates) in a separate effect
+            useEffect(() => {
+                if (!editorRef.current || !isInitializedRef.current) return;
+                
+                // Check if value actually changed from external source
+                if (value !== lastExternalValueRef.current) {
+                    const currentValue = editorRef.current.getValue();
+                    
+                    // Detect if this is a template change (significant difference)
+                    const isTemplateChange = 
+                        (value && value.includes('DeviceEvents\n')) ||
+                        (value && value.includes('DeviceProcessEvents\n')) ||
+                        (value && value.includes('DeviceNetworkEvents\n')) ||
+                        value === 'search * | take 10' ||
+                        (value === '' && currentValue.length > 20) ||
+                        (Math.abs((value?.length || 0) - currentValue.length) > 50);
+                    
+                    // Only update for template changes
+                    if (isTemplateChange) {
+                        // Mark as internal change to prevent triggering onChange
+                        isInternalChangeRef.current = true;
+                        
+                        // Store focus state
+                        const hadFocus = editorRef.current.hasTextFocus();
+                        const position = editorRef.current.getPosition();
+                        
+                        // Update the value
+                        editorRef.current.setValue(value || '');
+                        
+                        // Restore focus if it was there
+                        if (hadFocus) {
+                            requestAnimationFrame(() => {
+                                editorRef.current.focus();
+                                if (position) {
+                                    editorRef.current.setPosition(position);
+                                }
+                            });
+                        }
+                        
+                        lastExternalValueRef.current = value;
+                    }
+                }
+            }, [value]);
+
+            // Handle disabled state changes
+            useEffect(() => {
+                if (editorRef.current && isInitializedRef.current) {
+                    editorRef.current.updateOptions({ readOnly: disabled });
+                }
+            }, [disabled]);
+
+            return (
+                <div 
+                    ref={containerRef}
+                    style={{ 
+                        width: '100%', 
+                        height: '250px',
+                        border: '2px solid #0e639c',
+                        borderRadius: '4px',
+                        position: 'relative'
+                    }}
+                    aria-label="KQL Query Editor"
+                    suppressContentEditableWarning={true}
+                    data-monaco-container="true"
+                />
+            );
+        }, (prevProps, nextProps) => {
+            // Custom comparison to prevent unnecessary re-renders
+            // Return true to skip re-render, false to re-render
+            // The KQLEditor manages its own internal state and only needs to re-render
+            // when disabled or workspaceSchema changes. Value changes are handled internally.
+            const shouldSkipRender = 
+                prevProps.disabled === nextProps.disabled &&
+                prevProps.workspaceSchema === nextProps.workspaceSchema &&
+                prevProps.placeholder === nextProps.placeholder;
+            
+            return shouldSkipRender;
+        });
+
+        // Test App - EXACT COPY of pattern from index.html
+        function TestApp() {
+            const [kqlQuery, setKqlQuery] = useState('search * | take 10');
+            const kqlQueryRef = useRef(kqlQuery);
+            const [renderCount, setRenderCount] = useState(0);
+            
+            // Track renders (but don't cause infinite loop!)
+            useEffect(() => {
+                console.log(`Parent rendered ${renderCount + 1} times`);
+                setRenderCount(prev => prev + 1);
+            }, []); // Empty deps - only log on mount
+            
+            // Memoized callback that updates both state and ref - EXACT COPY
+            const handleKqlQueryChange = useCallback((newQuery) => {
+                kqlQueryRef.current = newQuery;
+                // Use React 18's automatic batching
+                setKqlQuery(newQuery);
+            }, []);
+            
+            return (
+                <div>
+                    <h2>KQL Query Editor</h2>
+                    
+                    <div className="template-buttons">
+                        <button 
+                            className="template-button"
+                            onClick={() => {
+                                const newQuery = 'DeviceEvents\n| where Timestamp > ago(1h)\n| project Timestamp, DeviceName, ActionType, FileName, ProcessCommandLine\n| take 100';
+                                kqlQueryRef.current = newQuery;
+                                setKqlQuery(newQuery);
+                            }}
+                        >
+                            Recent Device Events
+                        </button>
+                        <button 
+                            className="template-button"
+                            onClick={() => {
+                                const newQuery = 'DeviceProcessEvents\n| where Timestamp > ago(1h)\n| project Timestamp, DeviceName, FileName, ProcessCommandLine, AccountName\n| take 100';
+                                kqlQueryRef.current = newQuery;
+                                setKqlQuery(newQuery);
+                            }}
+                        >
+                            Process Events
+                        </button>
+                        <button 
+                            className="template-button"
+                            onClick={() => {
+                                const newQuery = 'DeviceNetworkEvents\n| where Timestamp > ago(1h)\n| project Timestamp, DeviceName, RemoteIP, RemotePort, RemoteUrl\n| take 100';
+                                kqlQueryRef.current = newQuery;
+                                setKqlQuery(newQuery);
+                            }}
+                        >
+                            Network Events
+                        </button>
+                        <button 
+                            className="template-button"
+                            onClick={() => {
+                                const newQuery = 'search * | take 10';
+                                kqlQueryRef.current = newQuery;
+                                setKqlQuery(newQuery);
+                            }}
+                        >
+                            Search All
+                        </button>
+                    </div>
+                    
+                    <KQLEditor 
+                        value={kqlQuery}
+                        onChange={handleKqlQueryChange}
+                        placeholder="Enter your KQL query here..."
+                        workspaceSchema={null}
+                        disabled={false}
+                    />
+                    
+                    <div className="status">
+                        <strong>Current Query:</strong> {kqlQuery}<br/>
+                        <strong>Length:</strong> {kqlQuery.length} characters<br/>
+                        <strong>Parent Renders:</strong> {renderCount}
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<TestApp />);
+    </script>
+</body>
+</html>

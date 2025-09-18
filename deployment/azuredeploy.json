@@ -1,0 +1,425 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "AI-Icarus deployment template for Azure Government IL4 environments",
+    "author": "AI-Icarus Team"
+  },
+  "parameters": {
+    "appName": {
+      "type": "string",
+      "defaultValue": "ai-icarus",
+      "minLength": 3,
+      "maxLength": 20,
+      "metadata": {
+        "description": "Base name for all resources. Must be globally unique."
+      }
+    },
+    "environment": {
+      "type": "string",
+      "defaultValue": "AzureDoD",
+      "allowedValues": [
+        "AzureUSGovernment",
+        "AzureDoD"
+      ],
+      "metadata": {
+        "description": "Azure environment type (GCC High or DoD)"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "allowedValues": [
+        "usgovvirginia",
+        "usgovarizona",
+        "usdodcentral",
+        "usdodeast"
+      ],
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "staticWebAppSku": {
+      "type": "string",
+      "defaultValue": "Free",
+      "allowedValues": [
+        "Free",
+        "Standard"
+      ],
+      "metadata": {
+        "description": "Static Web App pricing tier"
+      }
+    },
+    "functionAppSku": {
+      "type": "string",
+      "defaultValue": "Y1",
+      "allowedValues": [
+        "Y1",
+        "EP1",
+        "EP2",
+        "EP3"
+      ],
+      "metadata": {
+        "description": "Function App hosting plan SKU (Y1 = Consumption)"
+      }
+    },
+    "storageAccountType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Standard_ZRS"
+      ],
+      "metadata": {
+        "description": "Storage account replication type"
+      }
+    },
+    "enableNetworkIsolation": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable network isolation with private endpoints (required for IL4)"
+      }
+    },
+    "logRetentionInDays": {
+      "type": "int",
+      "defaultValue": 365,
+      "minValue": 365,
+      "metadata": {
+        "description": "Log retention period in days (IL4 requires minimum 365)"
+      }
+    }
+  },
+  "variables": {
+    "uniqueString": "[uniqueString(subscription().id, resourceGroup().id, parameters('appName'))]",
+    "storageAccountName": "[toLower(concat('st', parameters('appName'), variables('uniqueString')))]",
+    "functionAppName": "[concat('func-', parameters('appName'), '-', variables('uniqueString'))]",
+    "staticWebAppName": "[concat('swa-', parameters('appName'), '-', variables('uniqueString'))]",
+    "appInsightsName": "[concat('appi-', parameters('appName'))]",
+    "logAnalyticsName": "[concat('law-', parameters('appName'))]",
+    "keyVaultName": "[concat('kv-', parameters('appName'), '-', take(variables('uniqueString'), 8))]",
+    "hostingPlanName": "[concat('plan-', parameters('appName'))]",
+    "nsgName": "[concat('nsg-', parameters('appName'))]",
+    "endpoints": {
+      "AzureUSGovernment": {
+        "management": "https://management.usgovcloudapi.net",
+        "authentication": "https://login.microsoftonline.us",
+        "graph": "https://graph.microsoft.us",
+        "logAnalytics": "https://api.loganalytics.us",
+        "logAnalyticsOds": "https://ods.opinsights.azure.us",
+        "cognitive": "https://cognitiveservices.azure.us",
+        "openAI": "openai.azure.us",
+        "portal": "https://portal.azure.us"
+      },
+      "AzureDoD": {
+        "management": "https://management.usgovcloudapi.net",
+        "authentication": "https://login.microsoftonline.us",
+        "graph": "https://dod-graph.microsoft.us",
+        "logAnalytics": "https://api.loganalytics.us",
+        "logAnalyticsOds": "https://ods.opinsights.azure.us",
+        "cognitive": "https://cognitiveservices.azure.us",
+        "openAI": "openai.azure.us",
+        "portal": "https://portal.azure.us"
+      }
+    },
+    "selectedEndpoints": "[variables('endpoints')[parameters('environment')]]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('nsgName')]",
+      "location": "[parameters('location')]",
+      "condition": "[parameters('enableNetworkIsolation')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowHTTPS",
+            "properties": {
+              "priority": 100,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "443"
+            }
+          },
+          {
+            "name": "DenyAllInbound",
+            "properties": {
+              "priority": 4096,
+              "direction": "Inbound",
+              "access": "Deny",
+              "protocol": "*",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "*"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2021-12-01-preview",
+      "name": "[variables('logAnalyticsName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": "[parameters('logRetentionInDays')]",
+        "features": {
+          "enableLogAccessUsingOnlyResourcePermissions": true
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      ],
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]",
+        "IngestionMode": "LogAnalytics",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-09-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('storageAccountType')]"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2",
+        "encryption": {
+          "services": {
+            "blob": {
+              "enabled": true,
+              "keyType": "Account"
+            },
+            "file": {
+              "enabled": true,
+              "keyType": "Account"
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "networkAcls": {
+          "defaultAction": "[if(parameters('enableNetworkIsolation'), 'Deny', 'Allow')]",
+          "bypass": "AzureServices"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2021-03-01",
+      "name": "[variables('hostingPlanName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('functionAppSku')]",
+        "tier": "[if(equals(parameters('functionAppSku'), 'Y1'), 'Dynamic', 'ElasticPremium')]"
+      },
+      "properties": {
+        "reserved": false
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2021-03-01",
+      "name": "[variables('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]",
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+      ],
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "ftpsState": "Disabled",
+          "minTlsVersion": "1.2",
+          "http20Enabled": true,
+          "nodeVersion": "~18",
+          "cors": {
+            "allowedOrigins": [
+              "[concat('https://', variables('staticWebAppName'), '.azurestaticapps.net')]",
+              "https://portal.azure.us"
+            ],
+            "supportCredentials": true
+          },
+          "appSettings": [
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~4"
+            },
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "node"
+            },
+            {
+              "name": "WEBSITE_NODE_DEFAULT_VERSION",
+              "value": "~18"
+            },
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';EndpointSuffix=core.usgovcloudapi.net;AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2021-09-01').keys[0].value)]"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).InstrumentationKey]"
+            },
+            {
+              "name": "AZURE_ENVIRONMENT",
+              "value": "[parameters('environment')]"
+            },
+            {
+              "name": "AZURE_TENANT_ID",
+              "value": "[subscription().tenantId]"
+            },
+            {
+              "name": "AZURE_SUBSCRIPTION_ID",
+              "value": "[subscription().subscriptionId]"
+            },
+            {
+              "name": "ManagementEndpoint",
+              "value": "[variables('selectedEndpoints').management]"
+            },
+            {
+              "name": "AuthenticationEndpoint",
+              "value": "[variables('selectedEndpoints').authentication]"
+            },
+            {
+              "name": "GraphEndpoint",
+              "value": "[variables('selectedEndpoints').graph]"
+            },
+            {
+              "name": "LogAnalyticsEndpoint",
+              "value": "[variables('selectedEndpoints').logAnalytics]"
+            },
+            {
+              "name": "OpenAIDomain",
+              "value": "[variables('selectedEndpoints').openAI]"
+            },
+            {
+              "name": "STATIC_WEB_APP_URL",
+              "value": "[concat('https://', variables('staticWebAppName'), '.azurestaticapps.net')]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Web/staticSites",
+      "apiVersion": "2021-03-01",
+      "name": "[variables('staticWebAppName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('staticWebAppSku')]",
+        "tier": "[parameters('staticWebAppSku')]"
+      },
+      "properties": {
+        "repositoryUrl": "",
+        "branch": "",
+        "stagingEnvironmentPolicy": "Enabled",
+        "allowConfigFileUpdates": true,
+        "provider": "None",
+        "buildProperties": {
+          "appLocation": "/src/frontend",
+          "apiLocation": "",
+          "outputLocation": "/"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2021-11-01-preview",
+      "name": "[variables('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "enabledForDeployment": false,
+        "enabledForTemplateDeployment": true,
+        "enabledForDiskEncryption": false,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 90,
+        "enablePurgeProtection": true,
+        "enableRbacAuthorization": true,
+        "networkAcls": {
+          "defaultAction": "[if(parameters('enableNetworkIsolation'), 'Deny', 'Allow')]",
+          "bypass": "AzureServices"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2021-03-01",
+      "name": "[concat(variables('functionAppName'), '/web')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+      ],
+      "properties": {
+        "powerShellVersion": "7.2"
+      }
+    }
+  ],
+  "outputs": {
+    "staticWebAppUrl": {
+      "type": "string",
+      "value": "[concat('https://', variables('staticWebAppName'), '.azurestaticapps.net')]"
+    },
+    "staticWebAppName": {
+      "type": "string",
+      "value": "[variables('staticWebAppName')]"
+    },
+    "functionAppUrl": {
+      "type": "string",
+      "value": "[concat('https://', variables('functionAppName'), '.azurewebsites.net')]"
+    },
+    "functionAppName": {
+      "type": "string",
+      "value": "[variables('functionAppName')]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('keyVaultName')]"
+    },
+    "appInsightsInstrumentationKey": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).InstrumentationKey]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageAccountName')]"
+    },
+    "deploymentInstructions": {
+      "type": "string",
+      "value": "Deployment complete! Next steps: 1) Run ./scripts/configure-aad.ps1 to set up Azure AD, 2) Deploy source code to Static Web App and Function App, 3) Access your app at the Static Web App URL"
+    }
+  }
+}

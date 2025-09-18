@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Focus Debug</title>
+    
+    <!-- React -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Monaco Editor -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.css">
+    <script>var require = { paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs' } };</script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/loader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.nls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.31.0/min/vs/editor/editor.main.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        
+        .debug-panel {
+            background: #2d2d30;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            font-family: monospace;
+            font-size: 12px;
+            margin: 2px 0;
+            padding: 2px 5px;
+        }
+        
+        .log-focus { color: #4ec9b0; }
+        .log-blur { color: #f48771; }
+        .log-render { color: #c586c0; }
+        .log-change { color: #dcdcaa; }
+        .log-error { color: #ff6b6b; background: rgba(255,107,107,0.1); }
+        
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            background: #0e639c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #1177bb;
+        }
+        
+        .browser-info {
+            background: #007acc;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="browser-info" id="browser-info"></div>
+    <h1>Edge KQL Editor Focus Debug</h1>
+    
+    <div id="root"></div>
+    
+    <div class="debug-panel" id="debug-log">
+        <strong>Debug Log:</strong>
+    </div>
+    
+    <div>
+        <button onclick="clearLog()">Clear Log</button>
+        <button onclick="testFocus()">Test Focus</button>
+        <button onclick="logEditorState()">Log Editor State</button>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, memo } = React;
+        
+        // Browser detection
+        const isEdge = /Edg/.test(navigator.userAgent);
+        const isChrome = /Chrome/.test(navigator.userAgent) && !isEdge;
+        const browserInfo = `Browser: ${isEdge ? 'Microsoft Edge' : isChrome ? 'Google Chrome' : 'Other'} | User Agent: ${navigator.userAgent}`;
+        document.getElementById('browser-info').textContent = browserInfo;
+        
+        let logId = 0;
+        const log = (type, message, data = null) => {
+            const logDiv = document.getElementById('debug-log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const timestamp = new Date().toISOString().split('T')[1].substring(0, 12);
+            entry.textContent = `[${++logId}] ${timestamp} [${type.toUpperCase()}] ${message}`;
+            if (data) {
+                entry.textContent += ` | ${JSON.stringify(data)}`;
+            }
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // Also log to console
+            console.log(`[${type}] ${message}`, data || '');
+        };
+
+        // Test UNCONTROLLED component (no value prop sync)
+        const UncontrolledEditor = memo(() => {
+            const editorRef = useRef(null);
+            const containerRef = useRef(null);
+            const [renderCount, setRenderCount] = useState(0);
+            
+            useEffect(() => {
+                log('render', `UncontrolledEditor rendered ${renderCount + 1} times`);
+                setRenderCount(prev => prev + 1);
+            }, []);
+            
+            useEffect(() => {
+                if (!containerRef.current || editorRef.current) return;
+                
+                log('render', 'Initializing UNCONTROLLED Monaco editor');
+                
+                // Register KQL language
+                if (!monaco.languages.getLanguages().some(lang => lang.id === 'kusto')) {
+                    monaco.languages.register({ id: 'kusto' });
+                }
+                
+                editorRef.current = monaco.editor.create(containerRef.current, {
+                    value: 'search * | take 10',
+                    language: 'kusto',
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: 'on',
+                    wordWrap: 'on',
+                    // Minimal configuration for testing
+                    formatOnPaste: false,
+                    formatOnType: false
+                });
+                
+                // Log all focus events
+                editorRef.current.onDidFocusEditorText(() => {
+                    log('focus', 'UNCONTROLLED editor gained focus');
+                });
+                
+                editorRef.current.onDidBlurEditorText(() => {
+                    log('blur', 'UNCONTROLLED editor lost focus');
+                });
+                
+                // Log content changes
+                editorRef.current.onDidChangeModelContent((e) => {
+                    const value = editorRef.current.getValue();
+                    log('change', `Content changed: ${value.length} chars`);
+                });
+                
+                // Make editor available globally for testing
+                window.uncontrolledEditor = editorRef.current;
+                
+                return () => {
+                    if (editorRef.current) {
+                        editorRef.current.dispose();
+                    }
+                };
+            }, []);
+            
+            return (
+                <div>
+                    <h2>Uncontrolled Editor (No React State Sync)</h2>
+                    <div 
+                        ref={containerRef}
+                        style={{ 
+                            width: '100%', 
+                            height: '200px',
+                            border: '2px solid #0e639c',
+                            borderRadius: '4px'
+                        }}
+                    />
+                </div>
+            );
+        });
+
+        // Test CONTROLLED component (with value prop)
+        const ControlledEditor = memo(() => {
+            const editorRef = useRef(null);
+            const containerRef = useRef(null);
+            const [value, setValue] = useState('search * | take 10');
+            const [renderCount, setRenderCount] = useState(0);
+            const skipNextChangeRef = useRef(false);
+            
+            useEffect(() => {
+                log('render', `ControlledEditor rendered ${renderCount + 1} times`);
+                setRenderCount(prev => prev + 1);
+            });
+            
+            useEffect(() => {
+                if (!containerRef.current || editorRef.current) return;
+                
+                log('render', 'Initializing CONTROLLED Monaco editor');
+                
+                // Register KQL language
+                if (!monaco.languages.getLanguages().some(lang => lang.id === 'kusto')) {
+                    monaco.languages.register({ id: 'kusto' });
+                }
+                
+                editorRef.current = monaco.editor.create(containerRef.current, {
+                    value: value,
+                    language: 'kusto',
+                    theme: 'vs-dark',
+                    automaticLayout: true,
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineNumbers: 'on',
+                    wordWrap: 'on',
+                    formatOnPaste: false,
+                    formatOnType: false
+                });
+                
+                // Log all focus events
+                editorRef.current.onDidFocusEditorText(() => {
+                    log('focus', 'CONTROLLED editor gained focus');
+                });
+                
+                editorRef.current.onDidBlurEditorText(() => {
+                    log('blur', 'CONTROLLED editor lost focus');
+                });
+                
+                // Handle content changes
+                editorRef.current.onDidChangeModelContent((e) => {
+                    if (skipNextChangeRef.current) {
+                        skipNextChangeRef.current = false;
+                        return;
+                    }
+                    
+                    const newValue = editorRef.current.getValue();
+                    log('change', `Content changed: ${newValue.length} chars, updating React state`);
+                    setValue(newValue);
+                });
+                
+                // Make editor available globally for testing
+                window.controlledEditor = editorRef.current;
+                
+                return () => {
+                    if (editorRef.current) {
+                        editorRef.current.dispose();
+                    }
+                };
+            }, []);
+            
+            // Sync value changes
+            useEffect(() => {
+                if (!editorRef.current) return;
+                
+                const currentValue = editorRef.current.getValue();
+                if (value !== currentValue) {
+                    log('render', `Syncing value from React state: ${value.length} chars`);
+                    skipNextChangeRef.current = true;
+                    editorRef.current.setValue(value);
+                }
+            }, [value]);
+            
+            return (
+                <div>
+                    <h2>Controlled Editor (With React State Sync)</h2>
+                    <div>Current state value length: {value.length}</div>
+                    <div 
+                        ref={containerRef}
+                        style={{ 
+                            width: '100%', 
+                            height: '200px',
+                            border: '2px solid #16825d',
+                            borderRadius: '4px',
+                            marginTop: '10px'
+                        }}
+                    />
+                </div>
+            );
+        });
+
+        function App() {
+            return (
+                <div>
+                    <UncontrolledEditor />
+                    <div style={{ height: '20px' }} />
+                    <ControlledEditor />
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+        
+        // Helper functions
+        window.clearLog = function() {
+            const logDiv = document.getElementById('debug-log');
+            logDiv.innerHTML = '<strong>Debug Log:</strong>';
+            logId = 0;
+            log('info', 'Log cleared');
+        };
+        
+        window.testFocus = function() {
+            log('info', 'Testing focus...');
+            if (window.uncontrolledEditor) {
+                window.uncontrolledEditor.focus();
+                log('info', 'Focused uncontrolled editor');
+            }
+            if (window.controlledEditor) {
+                setTimeout(() => {
+                    window.controlledEditor.focus();
+                    log('info', 'Focused controlled editor');
+                }, 1000);
+            }
+        };
+        
+        window.logEditorState = function() {
+            if (window.uncontrolledEditor) {
+                log('info', 'Uncontrolled editor state', {
+                    hasFocus: window.uncontrolledEditor.hasTextFocus(),
+                    value: window.uncontrolledEditor.getValue().substring(0, 50) + '...',
+                    position: window.uncontrolledEditor.getPosition()
+                });
+            }
+            if (window.controlledEditor) {
+                log('info', 'Controlled editor state', {
+                    hasFocus: window.controlledEditor.hasTextFocus(),
+                    value: window.controlledEditor.getValue().substring(0, 50) + '...',
+                    position: window.controlledEditor.getPosition()
+                });
+            }
+        };
+    </script>
+</body>
+</html>
