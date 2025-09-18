@@ -1,6 +1,6 @@
 # AI-Icarus Azure Government IL4 Deployment
 
-[![Deploy to Azure Government](https://aka.ms/deploytoazurebutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fyour-username%2Fai-icarus-il4-deployment%2Fmain%2Fdeployment%2Fazuredeploy.json)
+[![Deploy to Azure Government](https://aka.ms/deploytoazurebutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Frsoligan_microsoft%2Fai-icarus-il4-deployment%2Fmain%2Fdeployment%2Fazuredeploy.json)
 
 ## Overview
 
@@ -56,7 +56,7 @@ AI-Icarus is a comprehensive web application for Azure OpenAI resource managemen
 
 ```powershell
 # Clone the repository
-git clone https://github.com/your-username/ai-icarus-il4-deployment.git
+git clone https://github.com/rsoligan_microsoft/ai-icarus-il4-deployment.git
 cd ai-icarus-il4-deployment
 
 # Login to Azure Government
@@ -249,7 +249,7 @@ Please read [CONTRIBUTING.md](docs/CONTRIBUTING.md) for details on our code of c
 - [API Reference](docs/API_REFERENCE.md)
 
 ### Getting Help
-- Create an [Issue](https://github.com/your-username/ai-icarus-il4-deployment/issues)
+- Create an [Issue](https://github.com/rsoligan_microsoft/ai-icarus-il4-deployment/issues)
 - Review [FAQ](docs/FAQ.md)
 - Check [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 
