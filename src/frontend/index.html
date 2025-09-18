@@ -337,24 +337,38 @@ SecurityEvent
             queryResults: null
         };
         
+        // Helper function to get the correct API URL
+        function getApiUrl(endpoint) {
+            // If we're on an Azure Web App, use the Function App URL
+            if (window.location.hostname.includes('.azurewebsites.')) {
+                // Extract the base name and construct Function App URL
+                const hostParts = window.location.hostname.split('-');
+                const baseName = hostParts[0].replace('web', 'func');
+                const suffix = hostParts.slice(1).join('-');
+                return `https://${baseName}-${suffix}${endpoint}`;
+            }
+            // Otherwise use relative path (for local development)
+            return endpoint;
+        }
+        
         // Initialize the application
         async function init() {
             try {
                 // Get configuration from the API
-                const response = await fetch('/api/config');
+                const response = await fetch(getApiUrl('/api/config'));
                 if (!response.ok) throw new Error('Failed to load configuration');
                 
                 const data = await response.json();
                 
                 // Set configuration
-                config.apiBaseUrl = window.location.origin;
+                config.apiBaseUrl = getApiUrl('');
                 config.environment = data.environment || 'AzureUSGovernment';
                 config.subscriptionId = data.subscriptionId || '';
                 
                 // Update UI
                 document.getElementById('envType').textContent = config.environment;
-                document.getElementById('region').textContent = data.region || 'US Gov Virginia';
-                document.getElementById('apiEndpoint').textContent = config.apiBaseUrl;
+                document.getElementById('region').textContent = data.region || 'US Gov Arizona';
+                document.getElementById('apiEndpoint').textContent = config.apiBaseUrl || window.location.origin;
                 
                 updateStatus('Configuration loaded successfully', 'success');
                 
@@ -396,7 +410,7 @@ SecurityEvent
             try {
                 updateStatus('Discovering workspaces...', 'info');
                 
-                const response = await fetch('/api/workspaces' + 
+                const response = await fetch(getApiUrl('/api/workspaces') + 
                     (config.subscriptionId ? '?subscriptionId=' + config.subscriptionId : ''));
                 
                 if (!response.ok) throw new Error('Failed to discover workspaces');
@@ -421,7 +435,7 @@ SecurityEvent
             try {
                 updateStatus('Discovering OpenAI resources...', 'info');
                 
-                const response = await fetch('/api/openai/resources' + 
+                const response = await fetch(getApiUrl('/api/openai/resources') + 
                     (config.subscriptionId ? '?subscriptionId=' + config.subscriptionId : ''));
                 
                 if (!response.ok) throw new Error('Failed to discover OpenAI resources');
@@ -499,7 +513,7 @@ SecurityEvent
                 updateStatus('Executing query...', 'info');
                 document.getElementById('queryResults').innerHTML = '<div class="loader"></div>';
                 
-                const response = await fetch('/api/kql/execute', {
+                const response = await fetch(getApiUrl('/api/kql/execute'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -600,7 +614,7 @@ SecurityEvent
                     ? config.selectedOpenAI.deployments[0].name
                     : 'gpt-35-turbo'; // Default deployment name
                 
-                const response = await fetch('/api/openai/analyze', {
+                const response = await fetch(getApiUrl('/api/openai/analyze'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
