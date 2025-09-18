@@ -1,0 +1,72 @@
+{
+  "Summary": {
+    "Passed": 11,
+    "Warnings": 3,
+    "HasErrors": false,
+    "Failed": 0
+  },
+  "Details": [
+    {
+      "Test": "ARM Schema",
+      "Details": "Valid schema",
+      "Result": "Pass"
+    },
+    {
+      "Test": "Resource Count",
+      "Details": "9 resources defined",
+      "Result": "Pass"
+    },
+    {
+      "Test": "IL4 Parameters",
+      "Details": "Network isolation and 365-day retention",
+      "Result": "Pass"
+    },
+    {
+      "Test": "DoD Endpoints",
+      "Details": "All endpoints correct",
+      "Result": "Pass"
+    },
+    {
+      "Test": "Frontend Code",
+      "Details": "13 HTML files",
+      "Result": "Pass"
+    },
+    {
+      "Test": "Function Code",
+      "Details": "1 JS files",
+      "Result": "Pass"
+    },
+    {
+      "Test": "TLS Version",
+      "Details": "Check TLS settings",
+      "Result": "Warning"
+    },
+    {
+      "Test": "HTTPS Only",
+      "Details": "Enabled",
+      "Result": "Pass"
+    },
+    {
+      "Test": "Key Vault",
+      "Details": "Purge protection and soft delete enabled",
+      "Result": "Pass"
+    },
+    {
+      "Test": "Script: configure-aad.ps1",
+      "Details": "Present",
+      "Result": "Pass"
+    },
+    {
+      "Test": "Script: validate-deployment.ps1",
+      "Details": "Present",
+      "Result": "Pass"
+    },
+    {
+      "Test": "Deploy Button",
+      "Details": "Points to Azure Government portal",
+      "Result": "Pass"
+    }
+  ],
+  "Timestamp": "2025-09-18 10:54:01",
+  "Recommendation": "PROCEED WITH CAUTION - Review warnings before deployment to IL4 environment."
+}

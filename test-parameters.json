@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": {
+      "value": "aiicarus-test"
+    },
+    "environment": {
+      "value": "AzureDoD"
+    },
+    "location": {
+      "value": "usgovvirginia"
+    },
+    "staticWebAppSku": {
+      "value": "Free"
+    },
+    "functionAppSku": {
+      "value": "Y1"
+    },
+    "storageAccountType": {
+      "value": "Standard_LRS"
+    },
+    "enableNetworkIsolation": {
+      "value": true
+    },
+    "logRetentionInDays": {
+      "value": 365
+    }
+  }
+}
