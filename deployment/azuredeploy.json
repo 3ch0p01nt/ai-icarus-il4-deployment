@@ -316,6 +316,18 @@
               "value": "~18"
             },
             {
+              "name": "WEBSITE_RUN_FROM_PACKAGE",
+              "value": "0"
+            },
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "true"
+            },
+            {
+              "name": "PROJECT",
+              "value": "src/functions"
+            },
+            {
               "name": "AzureWebJobsStorage",
               "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccountName'), ';EndpointSuffix=core.usgovcloudapi.net;AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2021-09-01').keys[0].value)]"
             },
@@ -390,6 +402,14 @@
               "value": "~18"
             },
             {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "true"
+            },
+            {
+              "name": "PROJECT",
+              "value": "src/frontend"
+            },
+            {
               "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
               "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).InstrumentationKey]"
             },
@@ -459,6 +479,38 @@
           "bypass": "AzureServices"
         }
       }
+    },
+    {
+      "type": "Microsoft.Web/sites/sourcecontrols",
+      "apiVersion": "2021-03-01",
+      "name": "[concat(variables('functionAppName'), '/web')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+      ],
+      "properties": {
+        "repoUrl": "https://github.com/3ch0p01nt/ai-icarus-il4-deployment",
+        "branch": "main",
+        "isManualIntegration": true,
+        "deploymentRollbackEnabled": false,
+        "isMercurial": false,
+        "isGitHubAction": false
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/sourcecontrols",
+      "apiVersion": "2021-03-01",
+      "name": "[concat(variables('webAppName'), '/web')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('webAppName'))]"
+      ],
+      "properties": {
+        "repoUrl": "https://github.com/3ch0p01nt/ai-icarus-il4-deployment",
+        "branch": "main",
+        "isManualIntegration": true,
+        "deploymentRollbackEnabled": false,
+        "isMercurial": false,
+        "isGitHubAction": false
+      }
     }
   ],
   "outputs": {
@@ -492,7 +544,7 @@
     },
     "deploymentInstructions": {
       "type": "string",
-      "value": "Deployment complete! Frontend is now on Web App instead of Static Web App. Next steps: 1) Deploy frontend code to Web App, 2) Run ./scripts/configure-aad.ps1 to set up Azure AD, 3) Deploy function code to Function App"
+      "value": "Deployment complete! Application code is automatically deployed from GitHub. The app should be accessible in 5-10 minutes at the Web App URL. If using authentication, run ./scripts/configure-aad.ps1 to set up Azure AD."
     }
   }
 }
