@@ -1,0 +1,15 @@
+{
+  "spa": {
+    "redirectUris": [
+      "https://web-aiicarus8-aa32zvcy5cvgo.azurewebsites.us",
+      "https://web-aiicarus8-aa32zvcy5cvgo.azurewebsites.us/"
+    ]
+  },
+  "web": {
+    "redirectUris": [],
+    "implicitGrantSettings": {
+      "enableAccessTokenIssuance": false,
+      "enableIdTokenIssuance": false
+    }
+  }
+}

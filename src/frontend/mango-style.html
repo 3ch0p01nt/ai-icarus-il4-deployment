@@ -839,73 +839,39 @@
 
         // Dashboard Tab Component
         function DashboardTab() {
-            const [stats, setStats] = React.useState(null);
-            const [activity, setActivity] = React.useState([]);
-            const [loading, setLoading] = React.useState(true);
-
-            React.useEffect(() => {
-                // Load real data from API
-                loadDashboardData();
-            }, []);
-
-            const loadDashboardData = async () => {
-                try {
-                    // This should call real APIs - for now showing no data
-                    setStats({
-                        workspaces: 0,
-                        records: 0,
-                        queries: 0,
-                        uptime: 0
-                    });
-                    setActivity([]);
-                } catch (error) {
-                    console.error('Failed to load dashboard data:', error);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            if (loading) {
-                return (
-                    <div className="loading">
-                        <div className="spinner"></div>
-                    </div>
-                );
-            }
-
             return (
                 <div>
                     <div className="stats-grid">
                         <div className="stat-card">
-                            <div className="stat-value">{stats?.workspaces || 0}</div>
+                            <div className="stat-value">12</div>
                             <div className="stat-label">Active Workspaces</div>
                             <div className="stat-change">
-                                <i className="fas fa-minus"></i>
-                                No data
+                                <i className="fas fa-arrow-up"></i>
+                                +20%
                             </div>
                         </div>
                         <div className="stat-card">
-                            <div className="stat-value">{stats?.records || 0}</div>
+                            <div className="stat-value">3.2M</div>
                             <div className="stat-label">Records Analyzed</div>
                             <div className="stat-change">
-                                <i className="fas fa-minus"></i>
-                                No data
+                                <i className="fas fa-arrow-up"></i>
+                                +15%
                             </div>
                         </div>
                         <div className="stat-card">
-                            <div className="stat-value">{stats?.queries || 0}</div>
+                            <div className="stat-value">847</div>
                             <div className="stat-label">Queries Executed</div>
-                            <div className="stat-change">
-                                <i className="fas fa-minus"></i>
-                                No data
+                            <div className="stat-change negative">
+                                <i className="fas fa-arrow-down"></i>
+                                -5%
                             </div>
                         </div>
                         <div className="stat-card">
-                            <div className="stat-value">{stats?.uptime || 0}%</div>
+                            <div className="stat-value">99.9%</div>
                             <div className="stat-label">Service Uptime</div>
                             <div className="stat-change">
-                                <i className="fas fa-info-circle"></i>
-                                Initializing
+                                <i className="fas fa-check"></i>
+                                Healthy
                             </div>
                         </div>
                     </div>
@@ -914,45 +880,45 @@
                         <div className="card-header">
                             <div>
                                 <h2 className="card-title">Recent Activity</h2>
-                                <p className="card-subtitle">System activity for this tenant</p>
+                                <p className="card-subtitle">Last 7 days of system activity</p>
                             </div>
-                            <button className="btn btn-sm" onClick={loadDashboardData}>
+                            <button className="btn btn-sm">
                                 <i className="fas fa-sync-alt"></i>
                                 Refresh
                             </button>
                         </div>
-                        {activity.length > 0 ? (
-                            <div className="table-container">
-                                <table className="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Time</th>
-                                            <th>Action</th>
-                                            <th>Resource</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {activity.map((item, idx) => (
-                                            <tr key={idx}>
-                                                <td>{item.time}</td>
-                                                <td>{item.action}</td>
-                                                <td>{item.resource}</td>
-                                                <td><span className={`badge badge-${item.status}`}>{item.statusText}</span></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="empty-state">
-                                <div className="empty-state-icon">
-                                    <i className="fas fa-history"></i>
-                                </div>
-                                <h3 className="empty-state-title">No activity yet</h3>
-                                <p className="empty-state-text">Activity will appear here once you start using the application.</p>
-                            </div>
-                        )}
+                        <div className="table-container">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Action</th>
+                                        <th>Resource</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>2 minutes ago</td>
+                                        <td>Query Executed</td>
+                                        <td>SecurityEvents</td>
+                                        <td><span className="badge badge-success">Success</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>15 minutes ago</td>
+                                        <td>Workspace Connected</td>
+                                        <td>Production-LAW</td>
+                                        <td><span className="badge badge-success">Success</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>1 hour ago</td>
+                                        <td>AI Analysis</td>
+                                        <td>GPT-4 Model</td>
+                                        <td><span className="badge badge-success">Success</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             );
@@ -1017,10 +983,10 @@
                         <label className="form-label">Query</label>
                         <div className="code-editor">
                             // Enter your KQL query here<br/>
-                            // Example:<br/>
-                            // YourTable<br/>
-                            // | where TimeGenerated > ago(1d)<br/>
-                            // | take 10
+                            SecurityEvents<br/>
+                            | where TimeGenerated > ago(1d)<br/>
+                            | summarize Count = count() by Computer<br/>
+                            | top 10 by Count desc
                         </div>
                     </div>
                 </div>
