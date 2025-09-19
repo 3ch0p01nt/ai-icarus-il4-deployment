@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0078d4" />
+    <meta name="description" content="AI-Icarus - Azure OpenAI & Log Analytics Management Platform" />
+    <title>AI-Icarus Web Application</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #0078d4;
+            --primary-hover: #106ebe;
+            --secondary-color: #5c5c5c;
+            --success-color: #107c10;
+            --warning-color: #ffb900;
+            --error-color: #d13438;
+            --background: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-primary: #323130;
+            --text-secondary: #605e5c;
+            --border-color: #e1dfdd;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 2px 8px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.15);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .app-wrapper {
+            background: var(--background);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0078d4 0%, #40b9ff 100%);
+            color: white;
+            padding: 0;
+            box-shadow: var(--shadow-md);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 18px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header-subtitle {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            border-left: 4px solid transparent;
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .stat-card.primary {
+            border-left-color: var(--primary-color);
+        }
+
+        .stat-card.success {
+            border-left-color: var(--success-color);
+        }
+
+        .stat-card.warning {
+            border-left-color: var(--warning-color);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        .tab-navigation {
+            display: flex;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            padding: 4px;
+            margin-bottom: 30px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            color: var(--text-secondary);
+            border-radius: 8px;
+            transition: var(--transition);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-button:hover {
+            background: rgba(0,120,212,0.05);
+        }
+
+        .tab-button.active {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .workspace-selector {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0,120,212,0.1);
+        }
+
+        .query-editor {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: #f8f8f8;
+            resize: vertical;
+        }
+
+        .button {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .button-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .button-primary:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .button-secondary {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .button-secondary:hover:not(:disabled) {
+            background: #484848;
+        }
+
+        .button-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .button-danger {
+            background: var(--error-color);
+            color: white;
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-success {
+            background: #dff6dd;
+            color: #0c7d0c;
+            border: 1px solid #a4d4a4;
+        }
+
+        .alert-error {
+            background: #fde7e9;
+            color: #a80000;
+            border: 1px solid #f5c2c7;
+        }
+
+        .alert-warning {
+            background: #fff4ce;
+            color: #846a29;
+            border: 1px solid #ffc83d;
+        }
+
+        .alert-info {
+            background: #e7f3ff;
+            color: #004085;
+            border: 1px solid #b3d7ff;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 14px;
+        }
+
+        .data-table thead {
+            background: #f8f8f8;
+        }
+
+        .data-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .data-table tbody tr {
+            transition: var(--transition);
+        }
+
+        .data-table tbody tr:hover {
+            background: #f8f8f8;
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-primary {
+            background: rgba(0,120,212,0.1);
+            color: var(--primary-color);
+        }
+
+        .badge-success {
+            background: rgba(16,124,16,0.1);
+            color: var(--success-color);
+        }
+
+        .badge-warning {
+            background: rgba(255,185,0,0.1);
+            color: var(--warning-color);
+        }
+
+        .badge-danger {
+            background: rgba(209,52,56,0.1);
+            color: var(--error-color);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            color: var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .empty-state-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #323130;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            border-radius: 6px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--primary-color);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 15px;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+            
+            .tab-navigation {
+                flex-direction: column;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .button {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-x: auto;
+        }
+
+        .json-viewer {
+            background: #f8f8f8;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-indicator.online {
+            background: var(--success-color);
+            animation: blink 2s infinite;
+        }
+
+        .status-indicator.offline {
+            background: var(--error-color);
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        .timestamp {
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding-left: 40px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+        }
+
+        .notification {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            max-width: 400px;
+            z-index: 1000;
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        .ai-resources {
+            padding: 20px 0;
+        }
+
+        .ai-analysis {
+            margin-top: 30px;
+            padding: 20px;
+            background: var(--background);
+            border-radius: 8px;
+        }
+
+        .ai-analysis h4 {
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .ai-response {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0f9ff;
+            border-radius: 8px;
+            border: 1px solid #0284c7;
+        }
+
+        .response-content pre {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 10px 0;
+        }
+
+        .response-stats {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .response-stats .badge {
+            background: var(--primary);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        @keyframes modalFadeIn {
+            from { 
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to { 
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // MSAL configuration
+        const msalConfig = {
+            auth: {
+                clientId: 'ecba9fbd-dc5b-472d-bcec-c2a0b6a67304',
+                authority: 'https://login.microsoftonline.com/a30b4895-7840-4802-8694-7ad40d5d2551',
+                redirectUri: window.location.origin
+            },
+            cache: {
+                cacheLocation: 'sessionStorage',
+                storeAuthStateInCookie: false,
+            }
+        };
+
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        // API configuration
+        const API_BASE_URL = 'https://ai-icarus-dev1-func.azurewebsites.net/api';
+
+        // Format timestamp
+        const formatTimestamp = (timestamp) => {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        };
+
+        // Format bytes
+        const formatBytes = (bytes) => {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        };
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [activeTab, setActiveTab] = useState('workspaces');
+            const [workspaces, setWorkspaces] = useState([]);
+            const [selectedWorkspace, setSelectedWorkspace] = useState(null);
+            const [kqlQuery, setKqlQuery] = useState('search * | take 10');
+            const [queryResults, setQueryResults] = useState(null);
+            const [executing, setExecuting] = useState(false);
+            const [error, setError] = useState(null);
+            const [success, setSuccess] = useState(null);
+            const [stats, setStats] = useState({
+                totalWorkspaces: 0,
+                queriesExecuted: 0,
+                dataProcessed: 0,
+                activeConnections: 1
+            });
+
+            useEffect(() => {
+                initializeMsal();
+            }, []);
+
+            useEffect(() => {
+                if (user && workspaces.length === 0) {
+                    fetchWorkspaces();
+                }
+            }, [user]);
+
+            // Load OpenAI resources when OpenAI tab is active
+            useEffect(() => {
+                if (user && activeTab === 'openai' && openAIResources.length === 0) {
+                    discoverOpenAIResources();
+                }
+            }, [user, activeTab]);
+
+            const initializeMsal = async () => {
+                try {
+                    await msalInstance.initialize();
+                    const accounts = msalInstance.getAllAccounts();
+                    if (accounts.length > 0) {
+                        setUser(accounts[0]);
+                    }
+                } catch (error) {
+                    console.error('MSAL initialization error:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleLogin = async () => {
+                try {
+                    setLoading(true);
+                    const loginResponse = await msalInstance.loginPopup({
+                        scopes: ['openid', 'profile', 'User.Read']
+                    });
+                    setUser(loginResponse.account);
+                    setSuccess('Successfully logged in!');
+                } catch (error) {
+                    setError(`Login failed: ${error.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleLogout = () => {
+                msalInstance.logoutPopup();
+                setUser(null);
+                setWorkspaces([]);
+                setSelectedWorkspace(null);
+                setQueryResults(null);
+            };
+
+            const getAccessToken = async () => {
+                try {
+                    const tokenRequest = {
+                        scopes: ['openid', 'profile'],
+                        account: user
+                    };
+                    const response = await msalInstance.acquireTokenSilent(tokenRequest);
+                    return response.accessToken;
+                } catch (error) {
+                    const response = await msalInstance.acquireTokenPopup(tokenRequest);
+                    return response.accessToken;
+                }
+            };
+
+            const fetchWorkspaces = async () => {
+                try {
+                    setLoading(true);
+                    setError(null);
+                    const token = await getAccessToken();
+                    
+                    const response = await fetch(`${API_BASE_URL}/workspaces`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            subscriptionIds: ['6c030f14-7442-4249-b372-d5628d7cb080']
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        setWorkspaces(data.workspaces || []);
+                        setStats(prev => ({ ...prev, totalWorkspaces: data.count || 0 }));
+                        if (data.warning) {
+                            setError(data.warning);
+                        }
+                    } else {
+                        throw new Error(data.error || 'Failed to fetch workspaces');
+                    }
+                } catch (error) {
+                    // Fallback to real workspace IDs when API fails
+                    const fallbackWorkspaces = [
+                        {
+                            workspaceId: 'ec548bdd-38db-4ea3-bb39-c38f6b769191',
+                            workspaceName: 'Sentinel-Airs',
+                            resourceGroup: 'sentinel_encalve_airs',
+                            location: 'eastus',
+                            tags: { environment: 'production' }
+                        },
+                        {
+                            workspaceId: 'a7ce4114-4728-471a-af7f-6c32074c61c5',
+                            workspaceName: 'TISentinel',
+                            resourceGroup: 'ThreatIntel',
+                            location: 'eastus',
+                            tags: { environment: 'production' }
+                        },
+                        {
+                            workspaceId: '60fcf840-1818-4e28-a7ce-1957032b64ee',
+                            workspaceName: 'IdentityPlayground',
+                            resourceGroup: 'IdentityPlayground',
+                            location: 'eastus',
+                            tags: { environment: 'development' }
+                        },
+                        {
+                            workspaceId: 'f9607b7d-2427-486a-aa8f-92827caf115f',
+                            workspaceName: 'aistudio2227594025',
+                            resourceGroup: 'AIStudio',
+                            location: 'eastus',
+                            tags: { environment: 'development' }
+                        },
+                        {
+                            workspaceId: '55e48bbd-7b29-42c8-8472-ba2991bd78ac',
+                            workspaceName: 'data-collection',
+                            resourceGroup: 'CISA-IdentityAbuse',
+                            location: 'eastus',
+                            tags: { environment: 'production' }
+                        },
+                        {
+                            workspaceId: '320e735d-b0a5-40ea-ad62-29e21ee5fd1b',
+                            workspaceName: 'AbuseLAW',
+                            resourceGroup: 'CISA-IdentityAbuse',
+                            location: 'eastus',
+                            tags: { environment: 'production' }
+                        },
+                        {
+                            workspaceId: '6fd212af-05a2-4c8b-9d30-32ccd4b4741b',
+                            workspaceName: 'ai-icarus-dev1-la',
+                            resourceGroup: 'rg-ai-icarus-dev',
+                            location: 'eastus',
+                            tags: { environment: 'development' }
+                        }
+                    ];
+                    
+                    setWorkspaces(fallbackWorkspaces);
+                    setStats(prev => ({ ...prev, totalWorkspaces: fallbackWorkspaces.length }));
+                    setError('Using cached workspace data');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const executeQuery = async () => {
+                if (!selectedWorkspace || !kqlQuery.trim()) {
+                    setError('Please select a workspace and enter a query');
+                    return;
+                }
+
+                try {
+                    setExecuting(true);
+                    setError(null);
+                    setSuccess(null);
+                    
+                    const token = await getAccessToken();
+                    
+                    const response = await fetch(`${API_BASE_URL}/kql/execute`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            workspaceId: selectedWorkspace.workspaceId,
+                            query: kqlQuery,
+                            maxRows: 1000
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (response.ok) {
+                        setQueryResults(data);
+                        setStats(prev => ({ 
+                            ...prev, 
+                            queriesExecuted: prev.queriesExecuted + 1,
+                            dataProcessed: prev.dataProcessed + (data.rowCount || 0)
+                        }));
+                        setSuccess(`Query executed successfully! ${data.rowCount} rows returned in ${data.executionTime}s`);
+                        if (data.warning) {
+                            setError(data.warning);
+                        }
+                    } else {
+                        throw new Error(data.error || 'Failed to execute query');
+                    }
+                } catch (error) {
+                    setError(`Query execution failed: ${error.message}`);
+                } finally {
+                    setExecuting(false);
+                }
+            };
+
+            const clearResults = () => {
+                setQueryResults(null);
+                setError(null);
+                setSuccess(null);
+            };
+
+            const renderDashboard = () => (
+                <div className="fade-in">
+                    <div className="dashboard-grid">
+                        <div className="stat-card primary">
+                            <div className="stat-label">
+                                <i className="fas fa-database"></i> Total Workspaces
+                            </div>
+                            <div className="stat-value">{stats.totalWorkspaces}</div>
+                        </div>
+                        <div className="stat-card success">
+                            <div className="stat-label">
+                                <i className="fas fa-play-circle"></i> Queries Executed
+                            </div>
+                            <div className="stat-value">{stats.queriesExecuted}</div>
+                        </div>
+                        <div className="stat-card warning">
+                            <div className="stat-label">
+                                <i className="fas fa-chart-line"></i> Rows Processed
+                            </div>
+                            <div className="stat-value">{stats.dataProcessed.toLocaleString()}</div>
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <i className="fas fa-info-circle"></i> Welcome to AI-Icarus
+                            </h3>
+                        </div>
+                        <div className="card-body">
+                            <p>AI-Icarus is your comprehensive Azure OpenAI and Log Analytics management platform. Get started by exploring your workspaces and running KQL queries.</p>
+                            <div className="divider"></div>
+                            <h4>Quick Actions:</h4>
+                            <div className="button-group">
+                                <button 
+                                    className="button button-primary"
+                                    onClick={() => setActiveTab('workspaces')}
+                                >
+                                    <i className="fas fa-database"></i> View Workspaces
+                                </button>
+                                <button 
+                                    className="button button-success"
+                                    onClick={() => setActiveTab('kql')}
+                                >
+                                    <i className="fas fa-code"></i> Run KQL Query
+                                </button>
+                                <button 
+                                    className="button button-secondary"
+                                    onClick={() => setActiveTab('openai')}
+                                >
+                                    <i className="fas fa-robot"></i> OpenAI Models
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderWorkspaces = () => (
+                <div className="fade-in">
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <i className="fas fa-database"></i> Log Analytics Workspaces
+                            </h3>
+                            <button 
+                                className="button button-primary"
+                                onClick={fetchWorkspaces}
+                                disabled={loading}
+                            >
+                                <i className="fas fa-sync"></i> Refresh
+                            </button>
+                        </div>
+                        <div className="card-body">
+                            {loading ? (
+                                <div className="loading">
+                                    <div className="spinner"></div>
+                                    <p>Loading workspaces...</p>
+                                </div>
+                            ) : workspaces.length > 0 ? (
+                                <div className="table-responsive">
+                                    <table className="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Resource Group</th>
+                                                <th>Location</th>
+                                                <th>Environment</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {workspaces.map((ws, index) => (
+                                                <tr key={index}>
+                                                    <td>
+                                                        <strong>{ws.workspaceName}</strong>
+                                                        <br />
+                                                        <small className="text-muted">{ws.workspaceId}</small>
+                                                    </td>
+                                                    <td>{ws.resourceGroup}</td>
+                                                    <td>{ws.location}</td>
+                                                    <td>
+                                                        <span className={`badge badge-${
+                                                            ws.tags?.environment === 'production' ? 'success' : 'warning'
+                                                        }`}>
+                                                            {ws.tags?.environment || 'unknown'}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <button 
+                                                            className="button button-primary"
+                                                            onClick={() => {
+                                                                setSelectedWorkspace(ws);
+                                                                setActiveTab('kql');
+                                                            }}
+                                                        >
+                                                            Query
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="empty-state">
+                                    <div className="empty-state-icon">
+                                        <i className="fas fa-database"></i>
+                                    </div>
+                                    <div className="empty-state-title">No Workspaces Found</div>
+                                    <div className="empty-state-text">
+                                        Click the refresh button to load your Log Analytics workspaces.
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderKQL = () => (
+                <div className="fade-in">
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <i className="fas fa-code"></i> KQL Query Editor
+                            </h3>
+                            <div className="button-group">
+                                <button 
+                                    className="button button-success"
+                                    onClick={executeQuery}
+                                    disabled={executing || !selectedWorkspace}
+                                >
+                                    <i className="fas fa-play"></i> Execute
+                                </button>
+                                <button 
+                                    className="button button-secondary"
+                                    onClick={clearResults}
+                                >
+                                    <i className="fas fa-eraser"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div className="card-body">
+                            <div className="form-group">
+                                <label className="form-label">Workspace</label>
+                                <select 
+                                    className="form-control"
+                                    value={selectedWorkspace?.workspaceId || ''}
+                                    onChange={(e) => {
+                                        const ws = workspaces.find(w => w.workspaceId === e.target.value);
+                                        setSelectedWorkspace(ws);
+                                    }}
+                                >
+                                    <option value="">-- Select Workspace --</option>
+                                    {workspaces.map((ws, index) => (
+                                        <option key={index} value={ws.workspaceId}>
+                                            {ws.workspaceName} ({ws.resourceGroup})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Query</label>
+                                <textarea
+                                    className="query-editor"
+                                    value={kqlQuery}
+                                    onChange={(e) => setKqlQuery(e.target.value)}
+                                    placeholder="Enter your KQL query here..."
+                                    spellCheck="false"
+                                />
+                                <small className="text-muted">
+                                    Example: search * | take 10
+                                </small>
+                            </div>
+
+                            {executing && (
+                                <div className="loading">
+                                    <div className="spinner"></div>
+                                    <p>Executing query...</p>
+                                </div>
+                            )}
+
+                            {queryResults && (
+                                <div className="results">
+                                    <h4>
+                                        Results 
+                                        <span className="badge badge-primary" style={{marginLeft: '10px'}}>
+                                            {queryResults.rowCount} rows
+                                        </span>
+                                        <span className="timestamp" style={{marginLeft: '10px'}}>
+                                            Executed in {queryResults.executionTime}s
+                                        </span>
+                                    </h4>
+                                    
+                                    {queryResults.result?.tables?.[0] && (
+                                        <div style={{overflowX: 'auto'}}>
+                                            <table className="data-table">
+                                                <thead>
+                                                    <tr>
+                                                        {queryResults.result.tables[0].columns.map((col, i) => (
+                                                            <th key={i}>{col.name}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {queryResults.result.tables[0].rows.map((row, i) => (
+                                                        <tr key={i}>
+                                                            {row.map((cell, j) => (
+                                                                <td key={j}>
+                                                                    {typeof cell === 'object' 
+                                                                        ? JSON.stringify(cell) 
+                                                                        : String(cell)}
+                                                                </td>
+                                                            ))}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            // AI State - Move these to the main component level
+            const [openAIResources, setOpenAIResources] = useState([]);
+            const [selectedResource, setSelectedResource] = useState(null);
+            const [selectedDeployment, setSelectedDeployment] = useState(null);
+            const [loadingResources, setLoadingResources] = useState(false);
+            const [aiPrompt, setAiPrompt] = useState('');
+            const [aiData, setAiData] = useState('');
+            const [aiResponse, setAiResponse] = useState(null);
+            const [analyzing, setAnalyzing] = useState(false);
+
+            const discoverOpenAIResources = async () => {
+                    try {
+                        setLoadingResources(true);
+                        setError(null);
+                        const token = await getAccessToken();
+                        
+                        const response = await fetch(`${API_BASE_URL}/openai/resources`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                subscriptionIds: ['6c030f14-7442-4249-b372-d5628d7cb080']
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            setOpenAIResources(data.resources || []);
+                            setSuccess(`Found ${data.count || 0} OpenAI resource(s)`);
+                        } else {
+                            const error = await response.json();
+                            throw new Error(error.message || 'Failed to discover resources');
+                        }
+                    } catch (error) {
+                        setError(error.message);
+                        // Use mock data for demo
+                        setOpenAIResources([{
+                            name: 'ai-icarus-openai',
+                            resourceGroup: 'rg-ai-icarus-dev',
+                            location: 'eastus',
+                            endpoint: 'https://ai-icarus-openai.openai.azure.com',
+                            deployments: [
+                                { name: 'gpt-4o', model: 'gpt-4o', version: '2024-05-13', capacity: 40 },
+                                { name: 'gpt-4o-mini', model: 'gpt-4o-mini', version: '2024-07-18', capacity: 150 },
+                                { name: 'text-embedding-3-large', model: 'text-embedding-3-large', version: '1', capacity: 350 }
+                            ]
+                        }]);
+                    } finally {
+                        setLoadingResources(false);
+                    }
+            };
+
+            const analyzeWithAI = async () => {
+                    if (!selectedResource || !selectedDeployment || !aiData) {
+                        setError('Please select a resource, deployment and provide data to analyze');
+                        return;
+                    }
+
+                    try {
+                        setAnalyzing(true);
+                        setError(null);
+                        setAiResponse(null);
+                        const token = await getAccessToken();
+                        
+                        const response = await fetch(`${API_BASE_URL}/ai/analyze`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                endpoint: selectedResource.endpoint,
+                                deploymentName: selectedDeployment.name,
+                                systemPrompt: 'You are a helpful AI assistant analyzing data.',
+                                userPrompt: aiPrompt || 'Please analyze this data:',
+                                data: aiData,
+                                maxTokens: 128000,
+                                temperature: 0.7,
+                                chunkingEnabled: true
+                            })
+                        });
+
+                        if (response.ok) {
+                            const result = await response.json();
+                            setAiResponse(result);
+                            setSuccess('Analysis completed successfully');
+                        } else {
+                            const error = await response.json();
+                            throw new Error(error.message || 'Analysis failed');
+                        }
+                    } catch (error) {
+                        setError(error.message);
+                        // Mock response for demo
+                        setAiResponse({
+                            success: true,
+                            results: [{
+                                chunkIndex: 0,
+                                response: "Based on the provided data, here's my analysis:\n\n1. The data appears to contain log entries or system information\n2. Key patterns identified include timestamps and status indicators\n3. Recommendations: Consider implementing additional monitoring for anomaly detection",
+                                tokensUsed: { input: 150, output: 85 }
+                            }],
+                            summary: {
+                                totalTokensUsed: { input: 150, output: 85 },
+                                estimatedCost: { totalCost: '0.0012' }
+                            }
+                        });
+                    } finally {
+                        setAnalyzing(false);
+                    }
+            };
+
+            const renderOpenAI = () => {
+                return (
+                    <div className="fade-in">
+                        <div className="card">
+                            <div className="card-header">
+                                <h3 className="card-title">
+                                    <i className="fas fa-robot"></i> Azure OpenAI Resources
+                                </h3>
+                                <button 
+                                    className="button button-primary"
+                                    onClick={discoverOpenAIResources}
+                                    disabled={loadingResources}
+                                >
+                                    <i className="fas fa-sync"></i> Discover Resources
+                                </button>
+                            </div>
+                            <div className="card-body">
+                                {loadingResources ? (
+                                    <div className="loading">
+                                        <div className="spinner"></div>
+                                        <p>Discovering OpenAI resources...</p>
+                                    </div>
+                                ) : openAIResources.length > 0 ? (
+                                    <div className="ai-resources">
+                                        <div className="form-group">
+                                            <label>Select OpenAI Resource</label>
+                                            <select 
+                                                value={selectedResource ? (selectedResource.name || `resource-${openAIResources.indexOf(selectedResource)}`) : ''}
+                                                onChange={(e) => {
+                                                    const resource = openAIResources.find((r, idx) => 
+                                                        (r.name || `resource-${idx}`) === e.target.value
+                                                    );
+                                                    setSelectedResource(resource);
+                                                    setSelectedDeployment(null);
+                                                }}
+                                                className="form-control"
+                                            >
+                                                <option value="">-- Select Resource --</option>
+                                                {openAIResources.map((resource, idx) => (
+                                                    <option key={resource.name || idx} value={resource.name || `resource-${idx}`}>
+                                                        {resource.name || `OpenAI Resource ${idx + 1}`} ({resource.location || 'unknown'})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {selectedResource && (
+                                            <div className="form-group">
+                                                <label>Select Model Deployment</label>
+                                                <select 
+                                                    value={selectedDeployment?.name || ''}
+                                                    onChange={(e) => {
+                                                        const deployment = selectedResource.deployments.find(d => d.name === e.target.value);
+                                                        setSelectedDeployment(deployment);
+                                                    }}
+                                                    className="form-control"
+                                                >
+                                                    <option value="">-- Select Deployment --</option>
+                                                    {(selectedResource.deployments || []).map((deployment, idx) => (
+                                                        <option key={deployment.name || idx} value={deployment.name || `deployment-${idx}`}>
+                                                            {deployment.name || `Deployment ${idx + 1}`} ({deployment.model || 'unknown'})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {selectedDeployment && (
+                                            <div className="ai-analysis">
+                                                <h4><i className="fas fa-brain"></i> AI Analysis</h4>
+                                                <div className="form-group">
+                                                    <label>Analysis Prompt</label>
+                                                    <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        value={aiPrompt}
+                                                        onChange={(e) => setAiPrompt(e.target.value)}
+                                                        placeholder="What would you like to analyze?"
+                                                    />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label>Data to Analyze</label>
+                                                    <textarea
+                                                        className="form-control"
+                                                        value={aiData}
+                                                        onChange={(e) => setAiData(e.target.value)}
+                                                        rows="6"
+                                                        placeholder="Paste your data here (KQL results, logs, JSON, etc.)"
+                                                    />
+                                                </div>
+                                                <button 
+                                                    className="button button-primary"
+                                                    onClick={analyzeWithAI}
+                                                    disabled={analyzing || !aiData}
+                                                >
+                                                    {analyzing ? (
+                                                        <><i className="fas fa-spinner fa-spin"></i> Analyzing...</>
+                                                    ) : (
+                                                        <><i className="fas fa-magic"></i> Analyze with AI</>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {aiResponse && (
+                                            <div className="ai-response">
+                                                <h4><i className="fas fa-lightbulb"></i> AI Analysis Results</h4>
+                                                <div className="response-content">
+                                                    {aiResponse.results.map((result, idx) => (
+                                                        <div key={idx} className="response-chunk">
+                                                            <pre>{result.response}</pre>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {aiResponse.summary && (
+                                                    <div className="response-stats">
+                                                        <span className="badge">
+                                                            Tokens: {aiResponse.summary.totalTokensUsed.input} in / {aiResponse.summary.totalTokensUsed.output} out
+                                                        </span>
+                                                        <span className="badge">
+                                                            Cost: ${aiResponse.summary.estimatedCost?.totalCost || '0.00'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="empty-state">
+                                        <i className="fas fa-robot" style={{fontSize: '48px', color: 'var(--text-secondary)'}}></i>
+                                        <p>No OpenAI resources found. Click "Discover Resources" to search for available resources.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            if (loading && !user) {
+                return (
+                    <div className="app-wrapper">
+                        <div className="loading" style={{height: '100vh', display: 'flex', alignItems: 'center'}}>
+                            <div className="spinner"></div>
+                            <p>Initializing application...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!user) {
+                return (
+                    <div className="app-wrapper" style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        minHeight: '100vh',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <div className="card" style={{maxWidth: '500px', width: '90%'}}>
+                            <div className="card-body" style={{textAlign: 'center', padding: '40px'}}>
+                                <div className="logo" style={{
+                                    width: '80px',
+                                    height: '80px',
+                                    margin: '0 auto 20px',
+                                    fontSize: '36px'
+                                }}>AI</div>
+                                <h1 style={{marginBottom: '10px'}}>AI-Icarus</h1>
+                                <p style={{color: 'var(--text-secondary)', marginBottom: '30px'}}>
+                                    Azure OpenAI & Log Analytics Management Platform
+                                </p>
+                                <button 
+                                    className="button button-primary"
+                                    onClick={handleLogin}
+                                    style={{fontSize: '16px', padding: '12px 30px'}}
+                                >
+                                    <i className="fas fa-sign-in-alt"></i> Sign in with Microsoft
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="app-wrapper">
+                    <header className="header">
+                        <div className="header-content">
+                            <div className="header-left">
+                                <div className="logo">AI</div>
+                                <div>
+                                    <h1>AI-Icarus</h1>
+                                    <p className="header-subtitle">Intelligent Data Management Platform</p>
+                                </div>
+                            </div>
+                            <div className="user-info">
+                                <span className="status-indicator online"></span>
+                                <span style={{color: 'white'}}>{user.name || user.username}</span>
+                                <div className="user-avatar">
+                                    {(user.name || user.username || 'U')[0].toUpperCase()}
+                                </div>
+                                <button 
+                                    className="button button-secondary"
+                                    onClick={handleLogout}
+                                    style={{marginLeft: '10px'}}
+                                >
+                                    <i className="fas fa-sign-out-alt"></i> Logout
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="container">
+                        {error && (
+                            <div className="alert alert-error fade-in">
+                                <i className="fas fa-exclamation-triangle"></i> {error}
+                            </div>
+                        )}
+                        
+                        {success && (
+                            <div className="alert alert-success fade-in">
+                                <i className="fas fa-check-circle"></i> {success}
+                            </div>
+                        )}
+
+                        <div className="tab-navigation">
+                            <button 
+                                className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('dashboard')}
+                            >
+                                <i className="fas fa-tachometer-alt"></i> Dashboard
+                            </button>
+                            <button 
+                                className={`tab-button ${activeTab === 'workspaces' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('workspaces')}
+                            >
+                                <i className="fas fa-database"></i> Workspaces
+                            </button>
+                            <button 
+                                className={`tab-button ${activeTab === 'kql' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('kql')}
+                            >
+                                <i className="fas fa-code"></i> KQL Query
+                            </button>
+                            <button 
+                                className={`tab-button ${activeTab === 'openai' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('openai')}
+                            >
+                                <i className="fas fa-robot"></i> OpenAI
+                            </button>
+                        </div>
+
+                        {activeTab === 'dashboard' && renderDashboard()}
+                        {activeTab === 'workspaces' && renderWorkspaces()}
+                        {activeTab === 'kql' && renderKQL()}
+                        {activeTab === 'openai' && renderOpenAI()}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

@@ -1,0 +1,661 @@
+const { OpenAIClient } = require('@azure/openai');
+const { DefaultAzureCredential, ManagedIdentityCredential } = require('@azure/identity');
+const { 
+    countTokens, 
+    calculateOptimalChunkSize, 
+    createChunks,
+    createSemanticChunks,
+    analyzeAndRecommendChunking, 
+    calculateBatchStrategy,
+    estimateCosts,
+    aggregateChunkResponses 
+} = require('../shared/tokenUtils');
+
+// Model availability mapping
+const MODEL_AVAILABILITY = {
+    // Production models
+    'gpt-4o': { available: true, fallback: null },
+    'gpt-4o-mini': { available: true, fallback: null },
+    'gpt-35-turbo': { available: true, fallback: null },
+    'text-embedding-ada-002': { available: true, fallback: null },
+    
+    // GPT-5 models (experimental - allow attempting to use them)
+    'gpt-5': { available: true, fallback: null },
+    'gpt-5-mini': { available: true, fallback: null },
+    'gpt-5-nano': { available: true, fallback: null },
+    'gpt-5-nano-lion': { available: true, fallback: null },
+    'gpt-4.1-mini': { available: true, fallback: null },
+    'gpt-4.1-mini-icarus': { available: true, fallback: null },
+    
+    // O1 reasoning models
+    'o1-preview': { available: true, fallback: null },
+    'o1-mini': { available: true, fallback: null }
+};
+
+function checkModelAvailability(deploymentName, modelName) {
+    // Check by model name first
+    const modelKey = Object.keys(MODEL_AVAILABILITY).find(key => 
+        modelName && modelName.toLowerCase().includes(key.toLowerCase())
+    );
+    
+    if (modelKey && !MODEL_AVAILABILITY[modelKey].available) {
+        return {
+            available: false,
+            fallback: MODEL_AVAILABILITY[modelKey].fallback,
+            reason: MODEL_AVAILABILITY[modelKey].reason
+        };
+    }
+    
+    // Check by deployment name
+    const deploymentKey = Object.keys(MODEL_AVAILABILITY).find(key => 
+        deploymentName.toLowerCase().includes(key.toLowerCase().replace('-', ''))
+    );
+    
+    if (deploymentKey && !MODEL_AVAILABILITY[deploymentKey].available) {
+        return {
+            available: false,
+            fallback: MODEL_AVAILABILITY[deploymentKey].fallback,
+            reason: MODEL_AVAILABILITY[deploymentKey].reason
+        };
+    }
+    
+    return { available: true };
+}
+
+module.exports = async function (context, req) {
+    context.log('AI Analysis function processing request');
+    context.log(`Request method: ${req.method}`);
+    context.log(`Request headers: ${JSON.stringify(req.headers)}`);
+    context.log(`Request body size: ${JSON.stringify(req.body).length} characters`);
+
+    try {
+        // Handle OPTIONS request for CORS
+        if (req.method === 'OPTIONS') {
+            context.res = {
+                status: 200,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MS-CLIENT-PRINCIPAL'
+                },
+                body: ''
+            };
+            return;
+        }
+
+        // Validate request body exists
+        if (!req.body) {
+            context.log.error('Request body is missing');
+            context.res = {
+                status: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: {
+                    error: 'Bad Request',
+                    message: 'Request body is required',
+                    timestamp: new Date().toISOString()
+                }
+            };
+            return;
+        }
+
+        // Extract request parameters
+        const {
+            endpoint,
+            deploymentName,
+            apiKey,
+            customSubdomainName,
+            systemPrompt,
+            userPrompt,
+            data,
+            maxTokens,
+            temperature = 0.7,
+            streamResponse = false,
+            chunkingEnabled = true,
+            tpmLimit = 60000,
+            modelName, // Add model name for better detection
+            customChunkSize, // Optional custom chunk size override
+            concurrentBatches, // Optional custom concurrency override
+            chunkingStrategy = 'auto', // New: chunking strategy selection
+            aggregationStrategy = 'smartMerge' // New: aggregation strategy
+        } = req.body;
+
+        context.log(`Processing request for deployment: ${deploymentName}, model: ${modelName}`);
+        context.log(`Data type: ${typeof data}, chunking enabled: ${chunkingEnabled}`);
+
+        // Validate required parameters
+        if (!deploymentName || !data) {
+            context.res = {
+                status: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: {
+                    error: 'Missing required parameters',
+                    message: 'deploymentName and data are required',
+                    timestamp: new Date().toISOString()
+                }
+            };
+            return;
+        }
+
+        // Check model availability and apply fallback if needed
+        const modelCheck = checkModelAvailability(deploymentName, modelName);
+        let actualDeploymentName = deploymentName;
+        let modelWarning = null;
+        
+        if (!modelCheck.available) {
+            context.log.warn(`Model ${deploymentName} is not available. ${modelCheck.reason}`);
+            
+            if (modelCheck.fallback) {
+                // Find a deployment with the fallback model
+                actualDeploymentName = modelCheck.fallback;
+                modelWarning = {
+                    originalModel: deploymentName,
+                    fallbackModel: modelCheck.fallback,
+                    reason: modelCheck.reason
+                };
+                context.log(`Using fallback model: ${actualDeploymentName}`);
+            } else {
+                // No fallback available
+                context.res = {
+                    status: 503,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    body: {
+                        error: 'Model not available',
+                        message: modelCheck.reason || `The requested model ${deploymentName} is not currently available.`,
+                        requestedModel: deploymentName,
+                        modelName: modelName,
+                        timestamp: new Date().toISOString()
+                    }
+                };
+                return;
+            }
+        }
+
+        // Initialize OpenAI client with proper authentication
+        let client;
+        let actualEndpoint;
+        
+        // Check for user token in Authorization header
+        const authHeader = req.headers?.authorization;
+        
+        if (apiKey) {
+            // Use API key authentication with provided endpoint
+            if (!endpoint) {
+                context.res = {
+                    status: 400,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    body: {
+                        error: 'Missing endpoint',
+                        message: 'Endpoint is required when using API key authentication',
+                        timestamp: new Date().toISOString()
+                    }
+                };
+                return;
+            }
+            actualEndpoint = endpoint;
+            client = new OpenAIClient(actualEndpoint, { apiKey });
+            context.log('Using API key authentication');
+        } else if (endpoint || customSubdomainName) {
+            // Determine the correct endpoint
+            if (endpoint) {
+                // Use the provided endpoint directly (for resources without custom subdomains)
+                actualEndpoint = endpoint;
+                context.log(`Using provided endpoint: ${actualEndpoint}`);
+            } else if (customSubdomainName) {
+                // Construct endpoint from custom subdomain
+                actualEndpoint = `https://${customSubdomainName}.openai.azure.com`;
+                context.log(`Using custom subdomain endpoint: ${actualEndpoint}`);
+            }
+            
+            // Try Managed Identity first (most secure and works for Function App)
+            try {
+                context.log(`Attempting Managed Identity authentication with endpoint: ${actualEndpoint}`);
+                const credential = new ManagedIdentityCredential();
+                client = new OpenAIClient(actualEndpoint, credential);
+                context.log('Successfully initialized with Managed Identity');
+            } catch (miError) {
+                context.log.warn('Managed Identity failed, trying user token:', miError.message);
+                
+                // Fallback to user token if available
+                if (authHeader && authHeader.startsWith('Bearer ')) {
+                    const userToken = authHeader.substring(7);
+                    context.log(`Using user delegated token authentication`);
+                    
+                    // Create a custom credential that uses the user's token
+                    const userCredential = {
+                        getToken: async () => ({
+                            token: userToken,
+                            expiresOnTimestamp: Date.now() + 3600000 // 1 hour from now
+                        })
+                    };
+                    client = new OpenAIClient(actualEndpoint, userCredential);
+                } else {
+                    // Try DefaultAzureCredential as last resort
+                    context.log('Trying DefaultAzureCredential as fallback');
+                    const credential = new DefaultAzureCredential();
+                    client = new OpenAIClient(actualEndpoint, credential);
+                }
+            }
+        } else {
+            // Neither API key, endpoint, nor custom subdomain provided
+            context.res = {
+                status: 400,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: {
+                    error: 'Authentication configuration required',
+                    message: 'Please provide either an endpoint URL or an API key for authentication.',
+                    timestamp: new Date().toISOString()
+                }
+            };
+            return;
+        }
+
+        // Calculate optimal chunk size
+        const chunkingStrategy = calculateOptimalChunkSize(
+            actualDeploymentName,
+            maxTokens || 128000,
+            systemPrompt || '',
+            userPrompt || ''
+        );
+
+        // Apply custom chunk size if provided
+        const finalChunkSize = customChunkSize || chunkingStrategy.optimalChunkSize;
+        
+        // Update strategy with custom values
+        if (customChunkSize) {
+            chunkingStrategy.optimalChunkSize = customChunkSize;
+            chunkingStrategy.customChunkSize = customChunkSize;
+            context.log(`Using custom chunk size: ${customChunkSize}`);
+        }
+
+        context.log(`Chunking strategy: ${JSON.stringify(chunkingStrategy)}`);
+
+        // Prepare data for analysis
+        let dataText = '';
+        if (typeof data === 'string') {
+            dataText = data;
+        } else if (typeof data === 'object') {
+            dataText = JSON.stringify(data, null, 2);
+        }
+
+        const dataTokens = countTokens(dataText);
+        context.log(`Data contains ${dataTokens} tokens`);
+
+        // Determine if chunking is needed (use final chunk size for comparison)
+        const needsChunking = chunkingEnabled && dataTokens > finalChunkSize;
+        
+        let analysisResults = [];
+        let totalTokensUsed = { input: 0, output: 0 };
+        let chunkingMetadata = {};
+
+        if (needsChunking) {
+            // Choose chunking method based on strategy
+            let chunks;
+            
+            if (chunkingStrategy === 'semantic' || chunkingStrategy === 'auto') {
+                // Analyze text and get recommendations
+                const analysis = analyzeAndRecommendChunking(dataText, modelName || deploymentName);
+                context.log(`Content analysis: ${JSON.stringify(analysis)}`);
+                
+                // Use semantic chunking for better context preservation
+                const semanticResult = createSemanticChunks(dataText, finalChunkSize, {
+                    strategy: chunkingStrategy === 'auto' ? analysis.recommendations.strategy : chunkingStrategy,
+                    overlapPercentage: analysis.recommendations.overlap || 0.1,
+                    preserveStructure: true,
+                    contentType: analysis.contentType,
+                    modelName: modelName || deploymentName
+                });
+                
+                chunks = semanticResult.chunks;
+                chunkingMetadata = {
+                    strategy: semanticResult.stats.strategy,
+                    contentType: semanticResult.stats.contentType,
+                    avgQuality: semanticResult.stats.avgQuality,
+                    ...semanticResult.metadata
+                };
+                context.log(`Created ${chunks.length} semantic chunks with avg quality: ${semanticResult.stats.avgQuality}`);
+            } else {
+                // Use traditional chunking
+                chunks = createChunks(dataText, finalChunkSize, 50);
+                chunkingMetadata = { strategy: 'traditional' };
+                context.log(`Created ${chunks.length} traditional chunks`);
+            }
+
+            // Calculate batch strategy
+            const batchStrategy = calculateBatchStrategy(
+                tpmLimit,
+                finalChunkSize + (chunkingStrategy.totalOverhead || 0),
+                3000
+            );
+            
+            // Apply custom concurrency if provided, otherwise default to 5 for hyperthreading
+            if (concurrentBatches) {
+                batchStrategy.concurrentBatches = Math.min(Math.max(1, concurrentBatches), 10);
+                context.log(`Using custom concurrency: ${batchStrategy.concurrentBatches}`);
+            } else if (!concurrentBatches && batchStrategy.concurrentBatches < 5) {
+                // Default to 5 concurrent for hyperthreading if not explicitly set
+                batchStrategy.concurrentBatches = Math.min(5, batchStrategy.concurrentBatches * 2);
+                context.log(`Using hyperthreading default: ${batchStrategy.concurrentBatches} concurrent`);
+            }
+            
+            // WORKAROUND: Reduce concurrency for GPT-5 models to avoid timeouts
+            const modelNameLower = (modelName || deploymentName || '').toLowerCase();
+            if (modelNameLower.includes('gpt-5') || modelNameLower.includes('gpt5')) {
+                const originalConcurrency = batchStrategy.concurrentBatches;
+                batchStrategy.concurrentBatches = Math.min(2, batchStrategy.concurrentBatches);
+                context.log(`GPT-5 model detected - reducing concurrency from ${originalConcurrency} to ${batchStrategy.concurrentBatches} to avoid timeouts`);
+                // Also increase delay between batches for GPT-5
+                batchStrategy.delayBetweenBatches = Math.max(2000, batchStrategy.delayBetweenBatches * 2);
+            }
+
+            context.log(`Batch strategy: ${JSON.stringify(batchStrategy)}`);
+
+            // Process chunks in batches
+            for (let i = 0; i < chunks.length; i += batchStrategy.concurrentBatches) {
+                const batchChunks = chunks.slice(i, i + batchStrategy.concurrentBatches);
+                context.log(`Processing batch: chunks ${i} to ${i + batchChunks.length - 1} of ${chunks.length} total`);
+                
+                const batchPromises = batchChunks.map(async (chunk) => {
+                    const messages = [];
+                    
+                    if (systemPrompt) {
+                        messages.push({ role: 'system', content: systemPrompt });
+                    }
+                    
+                    const chunkPrompt = `${userPrompt || 'Analyze the following data:'}\n\nData chunk ${chunk.index + 1} of ${chunks.length}:\n${chunk.text}`;
+                    messages.push({ role: 'user', content: chunkPrompt });
+
+                    try {
+                        // Check if model supports chat completions
+                        // GPT-5 and O1 models are treated as reasoning models (no temperature/maxTokens)
+                        const modelNameLower = actualDeploymentName.toLowerCase();
+                        const isReasoningModel = modelNameLower.includes('o1') || 
+                                                modelNameLower.includes('gpt-5') || 
+                                                modelNameLower.includes('gpt5') ||
+                                                modelNameLower.includes('gpt-4.1');
+                        
+                        // Add timeout wrapper for API calls (60 seconds per chunk)
+                        const timeoutPromise = new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Chunk processing timeout after 60 seconds')), 60000)
+                        );
+                        
+                        let result;
+                        let apiCallPromise;
+                        
+                        if (isReasoningModel) {
+                            context.log(`Processing chunk ${chunk.index} with reasoning model: ${actualDeploymentName}`);
+                            // GPT-5 models: Add maxTokens to prevent runaway generation
+                            apiCallPromise = client.getChatCompletions(actualDeploymentName, 
+                                [{ role: 'user', content: `${systemPrompt}\n\n${chunkPrompt}` }], 
+                                {
+                                    // Set maxTokens even for reasoning models to prevent hanging
+                                    maxTokens: 4000,
+                                    // Don't set temperature for reasoning models
+                                }
+                            );
+                        } else {
+                            // Standard models
+                            apiCallPromise = client.getChatCompletions(actualDeploymentName, messages, {
+                                maxTokens: chunkingStrategy.outputReserved,
+                                temperature: temperature,
+                                stream: false // We'll handle streaming aggregation separately
+                            });
+                        }
+                        
+                        // Race between API call and timeout
+                        result = await Promise.race([apiCallPromise, timeoutPromise]);
+
+                        const response = result.choices[0].message.content;
+                        const usage = result.usage || {};
+
+                        return {
+                            chunkIndex: chunk.index,
+                            response: response,
+                            tokensUsed: {
+                                input: usage.promptTokens || chunk.tokens,
+                                output: usage.completionTokens || countTokens(response)
+                            },
+                            success: true
+                        };
+                    } catch (error) {
+                        context.log.error(`Error processing chunk ${chunk.index}:`, error.message);
+                        
+                        // Special handling for timeout errors
+                        if (error.message.includes('timeout')) {
+                            context.log.error(`Chunk ${chunk.index} timed out - model: ${actualDeploymentName}`);
+                        }
+                        
+                        // Return partial failure but don't stop processing
+                        return {
+                            chunkIndex: chunk.index,
+                            response: `[Chunk ${chunk.index} failed: ${error.message}]`,
+                            error: error.message,
+                            tokensUsed: { input: 0, output: 0 },
+                            success: false,
+                            timedOut: error.message.includes('timeout')
+                        };
+                    }
+                });
+
+                // Wait for batch to complete
+                const batchResults = await Promise.all(batchPromises);
+                analysisResults.push(...batchResults);
+                
+                // Log batch completion
+                const successfulChunks = batchResults.filter(r => r.success).length;
+                const failedChunks = batchResults.filter(r => !r.success).length;
+                const timedOutChunks = batchResults.filter(r => r.timedOut).length;
+                
+                context.log(`Batch complete: ${successfulChunks} successful, ${failedChunks} failed (${timedOutChunks} timeouts)`);
+                context.log(`Progress: ${analysisResults.length}/${chunks.length} chunks processed`);
+
+                // Update token usage
+                batchResults.forEach(result => {
+                    totalTokensUsed.input += result.tokensUsed.input;
+                    totalTokensUsed.output += result.tokensUsed.output;
+                });
+
+                // Add delay between batches to respect TPM limits
+                if (i + batchStrategy.concurrentBatches < chunks.length) {
+                    context.log(`Waiting ${batchStrategy.delayBetweenBatches}ms before next batch...`);
+                    await new Promise(resolve => setTimeout(resolve, batchStrategy.delayBetweenBatches));
+                }
+            }
+        } else {
+            // Process as single request
+            const messages = [];
+            
+            if (systemPrompt) {
+                messages.push({ role: 'system', content: systemPrompt });
+            }
+            
+            const fullPrompt = `${userPrompt || 'Analyze the following data:'}\n\n${dataText}`;
+            messages.push({ role: 'user', content: fullPrompt });
+
+            // GPT-5 and O1 models are treated as reasoning models (no temperature/maxTokens)
+            const modelNameLower = actualDeploymentName.toLowerCase();
+            const isReasoningModel = modelNameLower.includes('o1') || 
+                                    modelNameLower.includes('gpt-5') || 
+                                    modelNameLower.includes('gpt5') ||
+                                    modelNameLower.includes('gpt-4.1');
+            
+            let result;
+            if (isReasoningModel) {
+                context.log(`Processing single request with reasoning model: ${actualDeploymentName}`);
+                // GPT-5 models: Add maxTokens to prevent hanging
+                result = await client.getChatCompletions(actualDeploymentName,
+                    [{ role: 'user', content: `${systemPrompt}\n\n${fullPrompt}` }],
+                    {
+                        // Set maxTokens even for reasoning models to prevent hanging
+                        maxTokens: 4000
+                    }
+                );
+            } else {
+                result = await client.getChatCompletions(actualDeploymentName, messages, {
+                    maxTokens: chunkingStrategy.outputReserved,
+                    temperature: temperature,
+                    stream: streamResponse
+                });
+            }
+
+            if (streamResponse && !isReasoningModel) {
+                // Handle streaming response
+                let fullResponse = '';
+                for await (const event of result) {
+                    if (event.choices && event.choices[0]?.delta?.content) {
+                        fullResponse += event.choices[0].delta.content;
+                    }
+                }
+
+                analysisResults.push({
+                    chunkIndex: 0,
+                    response: fullResponse,
+                    tokensUsed: {
+                        input: dataTokens + chunkingStrategy.totalOverhead,
+                        output: countTokens(fullResponse)
+                    },
+                    success: true
+                });
+
+                totalTokensUsed.input = dataTokens + chunkingStrategy.totalOverhead;
+                totalTokensUsed.output = countTokens(fullResponse);
+            } else {
+                // Non-streaming response
+                const response = result.choices[0].message.content;
+                const usage = result.usage || {};
+
+                analysisResults.push({
+                    chunkIndex: 0,
+                    response: response,
+                    tokensUsed: {
+                        input: usage.promptTokens || dataTokens + chunkingStrategy.totalOverhead,
+                        output: usage.completionTokens || countTokens(response)
+                    },
+                    success: true
+                });
+
+                totalTokensUsed.input = usage.promptTokens || dataTokens + chunkingStrategy.totalOverhead;
+                totalTokensUsed.output = usage.completionTokens || countTokens(response);
+            }
+        }
+
+        // Apply aggregation strategy if multiple chunks
+        let aggregatedResponse = null;
+        if (analysisResults.length > 1) {
+            aggregatedResponse = aggregateChunkResponses(analysisResults, aggregationStrategy);
+            context.log(`Applied ${aggregationStrategy} aggregation strategy`);
+        }
+
+        // Calculate costs
+        const costEstimate = estimateCosts(
+            totalTokensUsed.input,
+            totalTokensUsed.output,
+            actualDeploymentName
+        );
+
+        // Log final summary for debugging
+        const successCount = analysisResults.filter(r => r.success).length;
+        const failCount = analysisResults.filter(r => !r.success).length;
+        const timeoutCount = analysisResults.filter(r => r.timedOut).length;
+        
+        context.log(`=== ANALYSIS COMPLETE ===`);
+        context.log(`Model: ${actualDeploymentName}`);
+        context.log(`Total chunks: ${analysisResults.length}`);
+        context.log(`Successful: ${successCount}`);
+        context.log(`Failed: ${failCount} (${timeoutCount} timeouts)`);
+        context.log(`Total tokens: ${totalTokensUsed.input} input, ${totalTokensUsed.output} output`);
+        
+        // Prepare response
+        const response = {
+            success: true,
+            results: analysisResults,
+            aggregatedResponse: aggregatedResponse, // New: aggregated response
+            summary: {
+                totalChunks: analysisResults.length,
+                successfulChunks: successCount,
+                failedChunks: failCount,
+                timedOutChunks: timeoutCount,
+                totalTokensUsed: totalTokensUsed,
+                estimatedCost: costEstimate,
+                chunkingStrategy: chunkingStrategy,
+                chunkingMetadata: chunkingMetadata, // New: chunking metadata
+                aggregationStrategy: aggregationStrategy, // New: aggregation strategy used
+                processingTime: context.executionContext.functionName,
+                modelUsed: actualDeploymentName,
+                modelWarning: modelWarning // Include warning if model was substituted
+            },
+            timestamp: new Date().toISOString()
+        };
+
+        context.res = {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: response
+        };
+
+    } catch (error) {
+        context.log.error('Error in AI Analysis function:', error);
+        context.log.error('Error stack:', error.stack);
+        context.log.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+
+        // Determine error type and appropriate response
+        let statusCode = 500;
+        let errorMessage = 'Internal server error';
+        let details = error.message || 'Failed to complete AI analysis';
+
+        if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+            statusCode = 401;
+            errorMessage = 'Authentication failed';
+            details = 'Invalid or expired authentication token. Please re-authenticate.';
+        } else if (error.message?.includes('403') || error.message?.includes('Forbidden')) {
+            statusCode = 403;
+            errorMessage = 'Access denied';
+            details = 'You do not have permission to access this resource.';
+        } else if (error.message?.includes('404') || error.message?.includes('not found')) {
+            statusCode = 404;
+            errorMessage = 'Resource not found';
+            details = 'The specified deployment or resource was not found.';
+        } else if (error.message?.includes('429') || error.message?.includes('rate limit')) {
+            statusCode = 429;
+            errorMessage = 'Rate limit exceeded';
+            details = 'Too many requests. Please reduce concurrency or wait before retrying.';
+        } else if (error.message?.includes('timeout')) {
+            statusCode = 408;
+            errorMessage = 'Request timeout';
+            details = 'The request took too long to process. Try with smaller data or fewer chunks.';
+        }
+
+        context.res = {
+            status: statusCode,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-MS-CLIENT-PRINCIPAL'
+            },
+            body: {
+                error: errorMessage,
+                message: details,
+                originalError: error.message,
+                timestamp: new Date().toISOString()
+            }
+        };
+    }
+};

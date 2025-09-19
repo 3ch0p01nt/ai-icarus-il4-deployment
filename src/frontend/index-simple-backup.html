@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Icarus - Azure OpenAI & Log Analytics Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0078D4 0%, #005a9e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #0078D4;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .header .subtitle {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+        
+        .container {
+            flex: 1;
+            display: flex;
+            padding: 2rem;
+            gap: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        
+        .main-content {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .section {
+            margin-bottom: 2rem;
+        }
+        
+        .section h2 {
+            color: #0078D4;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .button {
+            background: #0078D4;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        
+        .button:hover {
+            background: #005a9e;
+        }
+        
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+        
+        .status.success {
+            background: #e7f3e7;
+            color: #2e7d2e;
+            border: 1px solid #2e7d2e;
+        }
+        
+        .status.error {
+            background: #fde7e7;
+            color: #c41e3a;
+            border: 1px solid #c41e3a;
+        }
+        
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #1976d2;
+        }
+        
+        .resource-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 0.5rem;
+        }
+        
+        .resource-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .resource-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .resource-item.selected {
+            background: #e3f2fd;
+            border-left: 3px solid #0078D4;
+        }
+        
+        .query-editor {
+            width: 100%;
+            min-height: 150px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 0.5rem;
+            resize: vertical;
+        }
+        
+        .results-container {
+            margin-top: 1rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 1rem;
+            max-height: 400px;
+            overflow: auto;
+        }
+        
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0078D4;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .tab-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .tab {
+            padding: 0.5rem 1rem;
+            background: #f0f0f0;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .tab.active {
+            background: white;
+            border-bottom: none;
+            color: #0078D4;
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .config-info {
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .config-info .label {
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI-Icarus</h1>
+        <div class="subtitle">Azure OpenAI & Log Analytics Intelligence Platform - IL4 Government Cloud</div>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="section">
+                <h2>Configuration</h2>
+                <div id="configStatus" class="status info">
+                    Initializing...
+                </div>
+                <div class="config-info">
+                    <div><span class="label">Environment:</span> <span id="envType">Loading...</span></div>
+                    <div><span class="label">Region:</span> <span id="region">Loading...</span></div>
+                    <div><span class="label">API Endpoint:</span> <span id="apiEndpoint">Loading...</span></div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Resources</h2>
+                <button class="button" onclick="discoverWorkspaces()">Discover Workspaces</button>
+                <button class="button" onclick="discoverOpenAI()">Discover OpenAI</button>
+                <div id="resourceList" class="resource-list" style="margin-top: 1rem;">
+                    <div style="color: #666; text-align: center;">No resources discovered yet</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="tab-container">
+                <div class="tab active" onclick="switchTab('query')">KQL Query</div>
+                <div class="tab" onclick="switchTab('analyze')">AI Analysis</div>
+                <div class="tab" onclick="switchTab('about')">About</div>
+            </div>
+            
+            <div id="queryTab" class="tab-content active">
+                <div class="section">
+                    <h2>KQL Query Editor</h2>
+                    <textarea id="queryEditor" class="query-editor" placeholder="Enter your KQL query here...">
+// Example query
+SecurityEvent
+| where TimeGenerated > ago(24h)
+| summarize Count = count() by EventID, Computer
+| top 10 by Count desc</textarea>
+                    <button class="button" onclick="executeQuery()" style="margin-top: 1rem;">Execute Query</button>
+                </div>
+                
+                <div class="section">
+                    <h2>Results</h2>
+                    <div id="queryResults" class="results-container">
+                        <div style="color: #666; text-align: center;">No query results yet</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="analyzeTab" class="tab-content">
+                <div class="section">
+                    <h2>AI Analysis</h2>
+                    <select id="analysisType" style="width: 100%; padding: 0.5rem; margin-bottom: 1rem;">
+                        <option value="security">Security Analysis</option>
+                        <option value="performance">Performance Analysis</option>
+                        <option value="compliance">Compliance Check</option>
+                        <option value="summary">General Summary</option>
+                    </select>
+                    <button class="button" onclick="analyzeWithAI()">Analyze with OpenAI</button>
+                </div>
+                
+                <div class="section">
+                    <h2>Analysis Results</h2>
+                    <div id="analysisResults" class="results-container">
+                        <div style="color: #666; text-align: center;">No analysis results yet</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="aboutTab" class="tab-content">
+                <div class="section">
+                    <h2>About AI-Icarus</h2>
+                    <p style="line-height: 1.6;">
+                        AI-Icarus is a comprehensive platform for managing Azure OpenAI and Log Analytics resources 
+                        in Azure Government IL4 environments. This application provides:
+                    </p>
+                    <ul style="margin: 1rem 0; padding-left: 2rem; line-height: 1.8;">
+                        <li>Automatic discovery of Log Analytics workspaces</li>
+                        <li>KQL query execution with IntelliSense support</li>
+                        <li>OpenAI-powered data analysis</li>
+                        <li>IL4-compliant security configurations</li>
+                        <li>Government cloud endpoint support</li>
+                    </ul>
+                    <p style="line-height: 1.6;">
+                        <strong>Version:</strong> 1.0.0<br>
+                        <strong>Deployment:</strong> Azure Government IL4<br>
+                        <strong>Support:</strong> Contact your system administrator
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global configuration
+        let config = {
+            apiBaseUrl: '',
+            environment: '',
+            subscriptionId: '',
+            selectedWorkspace: null,
+            selectedOpenAI: null,
+            queryResults: null
+        };
+        
+        // Helper function to get the correct API URL
+        function getApiUrl(endpoint) {
+            // If we're on an Azure Web App, use the Function App URL
+            if (window.location.hostname.includes('.azurewebsites.')) {
+                // Extract the base name and construct Function App URL
+                const hostParts = window.location.hostname.split('-');
+                const baseName = hostParts[0].replace('web', 'func');
+                const suffix = hostParts.slice(1).join('-');
+                return `https://${baseName}-${suffix}${endpoint}`;
+            }
+            // Otherwise use relative path (for local development)
+            return endpoint;
+        }
+        
+        // Initialize the application
+        async function init() {
+            try {
+                // Get configuration from the API
+                const response = await fetch(getApiUrl('/api/config'));
+                if (!response.ok) throw new Error('Failed to load configuration');
+                
+                const data = await response.json();
+                
+                // Set configuration
+                config.apiBaseUrl = getApiUrl('');
+                config.environment = data.environment || 'AzureUSGovernment';
+                config.subscriptionId = data.subscriptionId || '';
+                
+                // Update UI
+                document.getElementById('envType').textContent = config.environment;
+                document.getElementById('region').textContent = data.region || 'US Gov Arizona';
+                document.getElementById('apiEndpoint').textContent = config.apiBaseUrl || window.location.origin;
+                
+                updateStatus('Configuration loaded successfully', 'success');
+                
+                // Auto-discover resources
+                setTimeout(() => {
+                    discoverWorkspaces();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateStatus('Failed to initialize: ' + error.message, 'error');
+            }
+        }
+        
+        // Update status message
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('configStatus');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+        
+        // Switch tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+        
+        // Discover workspaces
+        async function discoverWorkspaces() {
+            try {
+                updateStatus('Discovering workspaces...', 'info');
+                
+                const response = await fetch(getApiUrl('/api/workspaces') + 
+                    (config.subscriptionId ? '?subscriptionId=' + config.subscriptionId : ''));
+                
+                if (!response.ok) throw new Error('Failed to discover workspaces');
+                
+                const data = await response.json();
+                
+                if (data.workspaces && data.workspaces.length > 0) {
+                    displayResources(data.workspaces, 'workspace');
+                    updateStatus(`Found ${data.workspaces.length} workspace(s)`, 'success');
+                } else {
+                    updateStatus('No workspaces found', 'info');
+                }
+                
+            } catch (error) {
+                console.error('Workspace discovery error:', error);
+                updateStatus('Failed to discover workspaces', 'error');
+            }
+        }
+        
+        // Discover OpenAI resources
+        async function discoverOpenAI() {
+            try {
+                updateStatus('Discovering OpenAI resources...', 'info');
+                
+                const response = await fetch(getApiUrl('/api/openai/resources') + 
+                    (config.subscriptionId ? '?subscriptionId=' + config.subscriptionId : ''));
+                
+                if (!response.ok) throw new Error('Failed to discover OpenAI resources');
+                
+                const data = await response.json();
+                
+                if (data.resources && data.resources.length > 0) {
+                    displayResources(data.resources, 'openai');
+                    updateStatus(`Found ${data.resources.length} OpenAI resource(s)`, 'success');
+                } else {
+                    updateStatus('No OpenAI resources found', 'info');
+                }
+                
+            } catch (error) {
+                console.error('OpenAI discovery error:', error);
+                updateStatus('Failed to discover OpenAI resources', 'error');
+            }
+        }
+        
+        // Display resources in the sidebar
+        function displayResources(resources, type) {
+            const listEl = document.getElementById('resourceList');
+            
+            if (type === 'workspace') {
+                listEl.innerHTML = '<div style="font-weight: 600; margin-bottom: 0.5rem;">Log Analytics Workspaces:</div>';
+            } else {
+                listEl.innerHTML += '<div style="font-weight: 600; margin: 1rem 0 0.5rem;">OpenAI Resources:</div>';
+            }
+            
+            resources.forEach(resource => {
+                const item = document.createElement('div');
+                item.className = 'resource-item';
+                item.innerHTML = `
+                    <div style="font-weight: 500;">${resource.name}</div>
+                    <div style="font-size: 0.8rem; color: #666;">${resource.location || resource.resourceGroup}</div>
+                `;
+                item.onclick = () => selectResource(resource, type);
+                listEl.appendChild(item);
+            });
+        }
+        
+        // Select a resource
+        function selectResource(resource, type) {
+            // Remove previous selection
+            document.querySelectorAll('.resource-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Add selection to clicked item
+            event.currentTarget.classList.add('selected');
+            
+            if (type === 'workspace') {
+                config.selectedWorkspace = resource;
+                updateStatus(`Selected workspace: ${resource.name}`, 'success');
+            } else {
+                config.selectedOpenAI = resource;
+                updateStatus(`Selected OpenAI: ${resource.name}`, 'success');
+            }
+        }
+        
+        // Execute KQL query
+        async function executeQuery() {
+            if (!config.selectedWorkspace) {
+                updateStatus('Please select a workspace first', 'error');
+                return;
+            }
+            
+            const query = document.getElementById('queryEditor').value;
+            if (!query.trim()) {
+                updateStatus('Please enter a query', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Executing query...', 'info');
+                document.getElementById('queryResults').innerHTML = '<div class="loader"></div>';
+                
+                const response = await fetch(getApiUrl('/api/kql/execute'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        workspaceId: config.selectedWorkspace.customerId || config.selectedWorkspace.id,
+                        query: query,
+                        timespan: 'P1D'
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Query execution failed');
+                
+                const data = await response.json();
+                config.queryResults = data;
+                
+                displayQueryResults(data);
+                updateStatus('Query executed successfully', 'success');
+                
+            } catch (error) {
+                console.error('Query execution error:', error);
+                document.getElementById('queryResults').innerHTML = 
+                    '<div style="color: #c41e3a;">Error: ' + error.message + '</div>';
+                updateStatus('Query execution failed', 'error');
+            }
+        }
+        
+        // Display query results
+        function displayQueryResults(data) {
+            const resultsEl = document.getElementById('queryResults');
+            
+            if (!data.tables || data.tables.length === 0) {
+                resultsEl.innerHTML = '<div style="color: #666;">No results returned</div>';
+                return;
+            }
+            
+            const table = data.tables[0];
+            let html = `
+                <div style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="color: #666;">Returned ${table.rows.length} rows</div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="exportToCSV()" style="padding: 0.25rem 0.75rem; background: #0078D4; color: white; border: none; border-radius: 3px; cursor: pointer;">Export CSV</button>
+                            <button onclick="exportToJSON()" style="padding: 0.25rem 0.75rem; background: #0078D4; color: white; border: none; border-radius: 3px; cursor: pointer;">Export JSON</button>
+                            <button onclick="toggleVisualization()" style="padding: 0.25rem 0.75rem; background: #40E0D0; color: white; border: none; border-radius: 3px; cursor: pointer;">Visualize</button>
+                        </div>
+                    </div>
+                    <div id="chartContainer" style="display: none; margin-top: 1rem; background: white; padding: 1rem; border-radius: 5px;">
+                        <canvas id="resultsChart"></canvas>
+                    </div>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f0f0f0;">
+            `;
+            
+            // Add headers
+            table.columns.forEach(col => {
+                html += `<th style="padding: 0.5rem; border: 1px solid #e0e0e0; text-align: left;">${col.name}</th>`;
+            });
+            
+            html += '</tr></thead><tbody>';
+            
+            // Add rows (limit to first 100)
+            const rowsToShow = Math.min(100, table.rows.length);
+            for (let i = 0; i < rowsToShow; i++) {
+                html += '<tr>';
+                table.rows[i].forEach(cell => {
+                    html += `<td style="padding: 0.5rem; border: 1px solid #e0e0e0;">${cell || ''}</td>`;
+                });
+                html += '</tr>';
+            }
+            
+            if (table.rows.length > 100) {
+                html += `
+                    <tr>
+                        <td colspan="${table.columns.length}" style="padding: 0.5rem; text-align: center; color: #666;">
+                            ... and ${table.rows.length - 100} more rows
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            html += '</tbody></table>';
+            resultsEl.innerHTML = html;
+        }
+        
+        // Analyze with OpenAI
+        async function analyzeWithAI() {
+            if (!config.selectedOpenAI) {
+                updateStatus('Please select an OpenAI resource first', 'error');
+                return;
+            }
+            
+            if (!config.queryResults) {
+                updateStatus('Please execute a query first to get data for analysis', 'error');
+                return;
+            }
+            
+            const analysisType = document.getElementById('analysisType').value;
+            
+            try {
+                updateStatus('Analyzing data with AI...', 'info');
+                document.getElementById('analysisResults').innerHTML = '<div class="loader"></div>';
+                
+                // Find a deployment to use
+                const deployment = config.selectedOpenAI.deployments && config.selectedOpenAI.deployments.length > 0
+                    ? config.selectedOpenAI.deployments[0].name
+                    : 'gpt-35-turbo'; // Default deployment name
+                
+                const response = await fetch(getApiUrl('/api/openai/analyze'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        endpoint: config.selectedOpenAI.endpoint,
+                        deploymentName: deployment,
+                        data: config.queryResults,
+                        analysisType: analysisType
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Analysis failed');
+                
+                const data = await response.json();
+                displayAnalysisResults(data);
+                updateStatus('Analysis completed successfully', 'success');
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                document.getElementById('analysisResults').innerHTML = 
+                    '<div style="color: #c41e3a;">Error: ' + error.message + '</div>';
+                updateStatus('Analysis failed', 'error');
+            }
+        }
+        
+        // Display analysis results
+        function displayAnalysisResults(data) {
+            const resultsEl = document.getElementById('analysisResults');
+            
+            let html = '<div style="line-height: 1.6;">';
+            
+            // Main analysis
+            html += '<div style="margin-bottom: 1rem;">' + 
+                    (data.analysis || 'No analysis available').replace(/\n/g, '<br>') + 
+                    '</div>';
+            
+            // Key insights if available
+            if (data.insights) {
+                if (data.insights.keyFindings && data.insights.keyFindings.length > 0) {
+                    html += '<div style="margin-top: 1rem;"><strong>Key Findings:</strong><ul>';
+                    data.insights.keyFindings.forEach(finding => {
+                        html += `<li>${finding}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                if (data.insights.recommendations && data.insights.recommendations.length > 0) {
+                    html += '<div style="margin-top: 1rem;"><strong>Recommendations:</strong><ul>';
+                    data.insights.recommendations.forEach(rec => {
+                        html += `<li>${rec}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+            }
+            
+            html += '</div>';
+            resultsEl.innerHTML = html;
+        }
+        
+        // Export to CSV
+        function exportToCSV() {
+            if (!config.queryResults || !config.queryResults.tables || config.queryResults.tables.length === 0) {
+                updateStatus('No data to export', 'error');
+                return;
+            }
+            
+            const table = config.queryResults.tables[0];
+            let csv = table.columns.map(col => col.name).join(',') + '\n';
+            
+            table.rows.forEach(row => {
+                csv += row.map(cell => {
+                    // Escape values with commas or quotes
+                    const value = cell ? cell.toString() : '';
+                    if (value.includes(',') || value.includes('"')) {
+                        return '"' + value.replace(/"/g, '""') + '"';
+                    }
+                    return value;
+                }).join(',') + '\n';
+            });
+            
+            // Download the CSV
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'query_results_' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            updateStatus('Exported to CSV successfully', 'success');
+        }
+        
+        // Export to JSON
+        function exportToJSON() {
+            if (!config.queryResults || !config.queryResults.tables || config.queryResults.tables.length === 0) {
+                updateStatus('No data to export', 'error');
+                return;
+            }
+            
+            const table = config.queryResults.tables[0];
+            const jsonData = table.rows.map(row => {
+                const obj = {};
+                table.columns.forEach((col, index) => {
+                    obj[col.name] = row[index];
+                });
+                return obj;
+            });
+            
+            // Download the JSON
+            const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'query_results_' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            updateStatus('Exported to JSON successfully', 'success');
+        }
+        
+        // Toggle visualization
+        let currentChart = null;
+        function toggleVisualization() {
+            const container = document.getElementById('chartContainer');
+            if (!container) return;
+            
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                createChart();
+            } else {
+                container.style.display = 'none';
+                if (currentChart) {
+                    currentChart.destroy();
+                    currentChart = null;
+                }
+            }
+        }
+        
+        // Create chart from query results
+        function createChart() {
+            if (!config.queryResults || !config.queryResults.tables || config.queryResults.tables.length === 0) {
+                updateStatus('No data to visualize', 'error');
+                return;
+            }
+            
+            const table = config.queryResults.tables[0];
+            const ctx = document.getElementById('resultsChart');
+            if (!ctx) return;
+            
+            // Destroy existing chart if any
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            // Try to detect numeric columns for visualization
+            const numericColumns = [];
+            const dateColumns = [];
+            const textColumns = [];
+            
+            table.columns.forEach((col, index) => {
+                // Sample first few rows to determine column type
+                let isNumeric = true;
+                let isDate = true;
+                
+                for (let i = 0; i < Math.min(5, table.rows.length); i++) {
+                    const value = table.rows[i][index];
+                    if (value !== null && value !== undefined) {
+                        if (isNaN(value)) isNumeric = false;
+                        if (isNaN(Date.parse(value))) isDate = false;
+                    }
+                }
+                
+                if (isNumeric) {
+                    numericColumns.push({ name: col.name, index });
+                } else if (isDate && !isNumeric) {
+                    dateColumns.push({ name: col.name, index });
+                } else {
+                    textColumns.push({ name: col.name, index });
+                }
+            });
+            
+            // Create appropriate chart based on data
+            if (numericColumns.length > 0) {
+                // Use first text/date column as labels, numeric columns as datasets
+                const labelColumn = dateColumns[0] || textColumns[0] || { name: 'Index', index: -1 };
+                const labels = labelColumn.index >= 0 
+                    ? table.rows.slice(0, 50).map(row => row[labelColumn.index] || '')
+                    : table.rows.slice(0, 50).map((_, i) => i + 1);
+                
+                const datasets = numericColumns.slice(0, 3).map((col, i) => ({
+                    label: col.name,
+                    data: table.rows.slice(0, 50).map(row => row[col.index]),
+                    borderColor: ['#0078D4', '#40E0D0', '#FF6B6B'][i],
+                    backgroundColor: ['rgba(0,120,212,0.1)', 'rgba(64,224,208,0.1)', 'rgba(255,107,107,0.1)'][i],
+                    tension: 0.4
+                }));
+                
+                // Determine chart type based on data characteristics
+                const chartType = dateColumns.length > 0 ? 'line' : 'bar';
+                
+                currentChart = new Chart(ctx, {
+                    type: chartType,
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Query Results Visualization'
+                            },
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                
+                updateStatus(`Visualizing ${numericColumns.length} numeric column(s)`, 'success');
+            } else {
+                // Create a simple count chart for text data
+                const countColumn = textColumns[0] || { name: 'Data', index: 0 };
+                const counts = {};
+                
+                table.rows.forEach(row => {
+                    const value = row[countColumn.index] || 'null';
+                    counts[value] = (counts[value] || 0) + 1;
+                });
+                
+                const sortedEntries = Object.entries(counts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+                
+                currentChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: sortedEntries.map(e => e[0]),
+                        datasets: [{
+                            label: 'Count',
+                            data: sortedEntries.map(e => e[1]),
+                            backgroundColor: [
+                                '#0078D4', '#40E0D0', '#FF6B6B', '#FFD93D', 
+                                '#6BCF7F', '#A78BFA', '#F472B6', '#FB923C',
+                                '#10B981', '#6366F1'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Top 10 ${countColumn.name} Values`
+                            },
+                            legend: {
+                                display: true,
+                                position: 'right'
+                            }
+                        }
+                    }
+                });
+                
+                updateStatus('Created distribution chart for categorical data', 'success');
+            }
+        }
+        
+        // Initialize on page load
+        window.onload = init;
+    </script>
+</body>
+</html>
