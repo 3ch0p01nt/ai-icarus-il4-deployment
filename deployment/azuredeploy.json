@@ -58,15 +58,14 @@
     },
     "functionAppSku": {
       "type": "string",
-      "defaultValue": "Y1",
+      "defaultValue": "EP1",
       "allowedValues": [
-        "Y1",
         "EP1",
         "EP2",
         "EP3"
       ],
       "metadata": {
-        "description": "Function App hosting plan SKU (Y1 = Consumption)"
+        "description": "Function App hosting plan SKU (EP1 = Elastic Premium, required for Azure Government)"
       }
     },
     "storageAccountType": {
@@ -254,7 +253,7 @@
       "location": "[parameters('location')]",
       "sku": {
         "name": "[parameters('functionAppSku')]",
-        "tier": "[if(equals(parameters('functionAppSku'), 'Y1'), 'Dynamic', 'ElasticPremium')]"
+        "tier": "ElasticPremium"
       },
       "properties": {
         "reserved": false
