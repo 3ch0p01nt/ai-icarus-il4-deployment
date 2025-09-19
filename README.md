@@ -8,12 +8,30 @@ AI-Icarus is a comprehensive web application for Azure OpenAI resource managemen
 
 ## Features
 
+### Core Capabilities
 - 🔒 **IL4 Compliant**: Meets all DoD IL4 security requirements
 - 🚀 **One-Click Deployment**: Deploy entire infrastructure with a single button
 - 🔐 **User Delegation Model**: No API keys or service principals required
 - 🌐 **Multi-Environment Support**: Works in Commercial, GCC High, and DoD regions
 - 📊 **Dynamic Resource Discovery**: Automatically discovers Log Analytics and OpenAI resources
 - 🤖 **Intelligent Chunking**: Optimized token management for large datasets
+
+### Advanced Features (New)
+- 🛡️ **M365 Defender Integration**: Full suite of security incident management
+  - Incident retrieval and analysis
+  - Alert aggregation and correlation
+  - Advanced hunting queries
+  - Entity graph visualization
+  - AI-powered security analysis
+- 📈 **Data Visualization**: Chart.js integration with automatic chart type detection
+- 📁 **Multi-Format Export**: CSV, JSON, Excel, PDF, and Text export capabilities
+- 🔍 **KQL IntelliSense**: Context-aware query suggestions and autocomplete
+- 📋 **Schema Discovery**: Automatic workspace table and column discovery
+- ⚙️ **User Settings Storage**: Persistent user preferences and configurations
+- 🔄 **Real-time Streaming**: Streaming AI analysis responses
+- 🏥 **Health Monitoring**: Built-in health check endpoint
+- 🔐 **Token Exchange**: Secure authentication token management
+- 📊 **Multi-Subscription Support**: Manage resources across subscriptions
 
 ## Prerequisites
 
@@ -88,6 +106,41 @@ az deployment group create \
   --template-file deployment/azuredeploy.json \
   --parameters appName=ai-icarus environment=AzureDoD
 ```
+
+## API Endpoints
+
+The application includes comprehensive API endpoints for all functionality:
+
+### Core Endpoints
+- `/api/config` - Configuration and environment detection
+- `/api/workspaces` - Log Analytics workspace discovery
+- `/api/kql-execute` - KQL query execution
+- `/api/openai-analyze` - AI-powered data analysis
+- `/api/openai-resources` - OpenAI resource discovery
+- `/api/openai-deployments` - Model deployment discovery
+- `/api/openai-models` - Available models listing
+
+### M365 Defender Endpoints
+- `/api/m365-defender-incidents` - Security incident management
+- `/api/m365-defender-alerts` - Alert aggregation
+- `/api/m365-defender-graph` - Entity graph visualization
+- `/api/m365-defender-hunting` - Advanced hunting queries
+- `/api/m365-defender-kql` - Defender-specific KQL queries
+- `/api/m365-defender-analysis` - AI-powered security analysis
+
+### Advanced Services
+- `/api/export-service/{format}` - Multi-format data export
+- `/api/schema-discovery` - Workspace schema exploration
+- `/api/user-settings` - User preference management
+- `/api/auth-exchange` - Token management
+- `/api/subscriptions` - Subscription discovery
+- `/api/health` - Service health monitoring
+- `/api/analyze-with-ai` - Advanced AI analysis with streaming
+
+### Enhanced Endpoints
+- `/api/discover-workspaces` - Enhanced workspace discovery
+- `/api/execute-kql-query` - Advanced KQL execution with RBAC
+- `/api/workspace-schema` - Detailed schema information
 
 ## Architecture
 
