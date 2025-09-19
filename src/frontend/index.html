@@ -881,13 +881,19 @@
                     }
                     
                     // Set MSAL configuration based on environment
-                    const tenantId = config.tenantId || (isGovCloud ? '00000000-0000-0000-0000-000000000000' : 'common');
-                    const clientId = config.clientId || '00000000-0000-0000-0000-000000000000';
+                    const tenantId = config.auth?.tenantId || config.tenantId || (isGovCloud ? '00000000-0000-0000-0000-000000000000' : 'common');
+                    const clientId = config.auth?.clientId || config.clientId || '00000000-0000-0000-0000-000000000000';
+                    
+                    console.log('Config from API:', config);
+                    console.log('Using Client ID:', clientId);
+                    console.log('Using Tenant ID:', tenantId);
                     
                     msalConfig.auth.clientId = clientId;
-                    msalConfig.auth.authority = isGovCloud 
+                    msalConfig.auth.authority = config.auth?.authority || (isGovCloud 
                         ? `https://login.microsoftonline.us/${tenantId}`
-                        : `https://login.microsoftonline.com/${tenantId}`;
+                        : `https://login.microsoftonline.com/${tenantId}`);
+                    
+                    console.log('MSAL Config:', msalConfig);
                     
                     // Initialize MSAL with the configured settings
                     msalInstance = new msal.PublicClientApplication(msalConfig);
