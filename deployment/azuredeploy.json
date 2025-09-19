@@ -358,6 +358,10 @@
               "value": "true"
             },
             {
+              "name": "AZURE_CLIENT_ID",
+              "value": "7830b2fd-796f-4330-9d34-25b9c1e2fd1f"
+            },
+            {
               "name": "ManagementEndpoint",
               "value": "[variables('selectedEndpoints').management]"
             },
@@ -434,6 +438,10 @@
             {
               "name": "USE_MANAGED_IDENTITY",
               "value": "true"
+            },
+            {
+              "name": "AZURE_CLIENT_ID",
+              "value": "7830b2fd-796f-4330-9d34-25b9c1e2fd1f"
             },
             {
               "name": "ManagementEndpoint",
