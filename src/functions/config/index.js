@@ -25,9 +25,9 @@ module.exports = async function (context, req) {
     }
 
     // Get environment from Azure Function settings
-    const environment = process.env.AZURE_ENVIRONMENT || 'AzureDoD';
+    const environment = process.env.AZURE_ENVIRONMENT || 'AzureUSGovernment';
     const tenantId = process.env.AZURE_TENANT_ID || '';
-    const clientId = process.env.AZURE_CLIENT_ID || '';
+    const useManagedIdentity = process.env.USE_MANAGED_IDENTITY === 'true';
     const functionAppUrl = process.env.WEBSITE_HOSTNAME ? `https://${process.env.WEBSITE_HOSTNAME}` : '';
     const staticWebAppUrl = process.env.STATIC_WEB_APP_URL || '';
 
@@ -92,9 +92,10 @@ module.exports = async function (context, req) {
         environment: environment,
         subscriptionId: process.env.AZURE_SUBSCRIPTION_ID || '',
         auth: {
-            clientId: clientId,
+            useManagedIdentity: useManagedIdentity,
             tenantId: tenantId,
-            authority: `${endpoints[environment].authentication}/${tenantId}`
+            authority: `${endpoints[environment].authentication}/${tenantId}`,
+            authType: useManagedIdentity ? 'managed-identity' : 'interactive'
         },
         api: {
             functionAppUrl: functionAppUrl,
