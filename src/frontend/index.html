@@ -666,6 +666,7 @@
             const [activeTab, setActiveTab] = useState('dashboard');
             const [error, setError] = useState(null);
             const [notification, setNotification] = useState(null);
+            const [config, setConfig] = useState({});
 
             // Tab configurations
             const tabs = [
@@ -685,10 +686,13 @@
                     setLoading(true);
                     
                     // Get configuration from backend
-                    let config = {};
                     const configResponse = await fetch(`${API_BASE}/config`);
                     if (configResponse.ok) {
-                        config = await configResponse.json();
+                        const configData = await configResponse.json();
+                        setConfig(configData);
+                        config = configData; // Use local variable for this function
+                    } else {
+                        config = {}; // Default empty config
                     }
                     
                     // Set MSAL configuration based on environment
@@ -820,7 +824,7 @@
                     <main className="main-content">
                         <div className="tab-content">
                             {activeTab === 'dashboard' && <DashboardTab />}
-                            {activeTab === 'workspaces' && <WorkspacesTab />}
+                            {activeTab === 'workspaces' && <WorkspacesTab config={config} />}
                             {activeTab === 'kql' && <KQLTab />}
                             {activeTab === 'openai' && <OpenAITab />}
                         </div>
@@ -959,30 +963,107 @@
         }
 
         // Workspaces Tab Component
-        function WorkspacesTab() {
+        function WorkspacesTab({ config }) {
+            const [workspaces, setWorkspaces] = React.useState([]);
+            const [loading, setLoading] = React.useState(false);
+            const [error, setError] = React.useState(null);
+            
+            const discoverWorkspaces = async () => {
+                setLoading(true);
+                setError(null);
+                
+                try {
+                    const response = await fetch(`${API_BASE}/workspaces/discover`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            subscriptionId: config?.subscriptionId || process.env.AZURE_SUBSCRIPTION_ID
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.workspaces) {
+                        setWorkspaces(data.workspaces);
+                        if (data.workspaces.length === 0) {
+                            setError('No workspaces found in this subscription. Ensure the managed identity has appropriate permissions.');
+                        }
+                    } else {
+                        setError(data.message || 'Failed to discover workspaces');
+                    }
+                } catch (err) {
+                    console.error('Failed to discover workspaces:', err);
+                    setError('Failed to connect to the discovery service. Please check your network connection.');
+                    // NO FALLBACK DATA - this is critical for security
+                    setWorkspaces([]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
             return (
                 <div className="card">
                     <div className="card-header">
                         <div>
                             <h2 className="card-title">Log Analytics Workspaces</h2>
-                            <p className="card-subtitle">Manage and query your workspaces</p>
+                            <p className="card-subtitle">Manage and query your workspaces from this tenant only</p>
                         </div>
-                        <button className="btn btn-sm">
-                            <i className="fas fa-plus"></i>
-                            Discover Workspaces
+                        <button className="btn btn-sm" onClick={discoverWorkspaces} disabled={loading}>
+                            <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`}></i>
+                            {loading ? 'Discovering...' : 'Discover Workspaces'}
                         </button>
                     </div>
-                    <div className="empty-state">
-                        <div className="empty-state-icon">
-                            <i className="fas fa-database"></i>
+                    
+                    {error && (
+                        <div style={{padding: '16px', background: '#fff3cd', color: '#856404', borderRadius: '4px', margin: '16px'}}>
+                            <i className="fas fa-exclamation-triangle"></i> {error}
                         </div>
-                        <h3 className="empty-state-title">No workspaces connected</h3>
-                        <p className="empty-state-text">Click "Discover Workspaces" to find and connect to your Log Analytics workspaces.</p>
-                        <button className="btn">
-                            <i className="fas fa-search"></i>
-                            Discover Workspaces
-                        </button>
-                    </div>
+                    )}
+                    
+                    {workspaces.length > 0 ? (
+                        <div className="table-container">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Resource Group</th>
+                                        <th>Location</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {workspaces.map((ws, idx) => (
+                                        <tr key={idx}>
+                                            <td>{ws.workspaceName}</td>
+                                            <td>{ws.resourceGroup}</td>
+                                            <td>{ws.location}</td>
+                                            <td>
+                                                <button className="btn btn-sm">Query</button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="empty-state">
+                            <div className="empty-state-icon">
+                                <i className="fas fa-database"></i>
+                            </div>
+                            <h3 className="empty-state-title">No workspaces found</h3>
+                            <p className="empty-state-text">
+                                {loading ? 'Discovering workspaces...' : 'Click "Discover Workspaces" to find Log Analytics workspaces in your current subscription.'}
+                            </p>
+                            {!loading && (
+                                <button className="btn" onClick={discoverWorkspaces}>
+                                    <i className="fas fa-search"></i>
+                                    Discover Workspaces
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             );
         }
