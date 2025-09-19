@@ -347,7 +347,7 @@
             },
             {
               "name": "AZURE_TENANT_ID",
-              "value": "[if(empty(parameters('azureAdTenantId')), subscription().tenantId, parameters('azureAdTenantId'))]"
+              "value": "[subscription().tenantId]"
             },
             {
               "name": "AZURE_SUBSCRIPTION_ID",
