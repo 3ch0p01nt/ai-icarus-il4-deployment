@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI-Icarus - Azure OpenAI & Log Analytics Manager</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -552,8 +553,18 @@ SecurityEvent
             
             const table = data.tables[0];
             let html = `
-                <div style="margin-bottom: 0.5rem; color: #666;">
-                    Returned ${table.rows.length} rows
+                <div style="margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="color: #666;">Returned ${table.rows.length} rows</div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="exportToCSV()" style="padding: 0.25rem 0.75rem; background: #0078D4; color: white; border: none; border-radius: 3px; cursor: pointer;">Export CSV</button>
+                            <button onclick="exportToJSON()" style="padding: 0.25rem 0.75rem; background: #0078D4; color: white; border: none; border-radius: 3px; cursor: pointer;">Export JSON</button>
+                            <button onclick="toggleVisualization()" style="padding: 0.25rem 0.75rem; background: #40E0D0; color: white; border: none; border-radius: 3px; cursor: pointer;">Visualize</button>
+                        </div>
+                    </div>
+                    <div id="chartContainer" style="display: none; margin-top: 1rem; background: white; padding: 1rem; border-radius: 5px;">
+                        <canvas id="resultsChart"></canvas>
+                    </div>
                 </div>
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
@@ -673,6 +684,227 @@ SecurityEvent
             
             html += '</div>';
             resultsEl.innerHTML = html;
+        }
+        
+        // Export to CSV
+        function exportToCSV() {
+            if (!config.queryResults || !config.queryResults.tables || config.queryResults.tables.length === 0) {
+                updateStatus('No data to export', 'error');
+                return;
+            }
+            
+            const table = config.queryResults.tables[0];
+            let csv = table.columns.map(col => col.name).join(',') + '\n';
+            
+            table.rows.forEach(row => {
+                csv += row.map(cell => {
+                    // Escape values with commas or quotes
+                    const value = cell ? cell.toString() : '';
+                    if (value.includes(',') || value.includes('"')) {
+                        return '"' + value.replace(/"/g, '""') + '"';
+                    }
+                    return value;
+                }).join(',') + '\n';
+            });
+            
+            // Download the CSV
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'query_results_' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            updateStatus('Exported to CSV successfully', 'success');
+        }
+        
+        // Export to JSON
+        function exportToJSON() {
+            if (!config.queryResults || !config.queryResults.tables || config.queryResults.tables.length === 0) {
+                updateStatus('No data to export', 'error');
+                return;
+            }
+            
+            const table = config.queryResults.tables[0];
+            const jsonData = table.rows.map(row => {
+                const obj = {};
+                table.columns.forEach((col, index) => {
+                    obj[col.name] = row[index];
+                });
+                return obj;
+            });
+            
+            // Download the JSON
+            const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'query_results_' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            updateStatus('Exported to JSON successfully', 'success');
+        }
+        
+        // Toggle visualization
+        let currentChart = null;
+        function toggleVisualization() {
+            const container = document.getElementById('chartContainer');
+            if (!container) return;
+            
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                createChart();
+            } else {
+                container.style.display = 'none';
+                if (currentChart) {
+                    currentChart.destroy();
+                    currentChart = null;
+                }
+            }
+        }
+        
+        // Create chart from query results
+        function createChart() {
+            if (!config.queryResults || !config.queryResults.tables || config.queryResults.tables.length === 0) {
+                updateStatus('No data to visualize', 'error');
+                return;
+            }
+            
+            const table = config.queryResults.tables[0];
+            const ctx = document.getElementById('resultsChart');
+            if (!ctx) return;
+            
+            // Destroy existing chart if any
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            // Try to detect numeric columns for visualization
+            const numericColumns = [];
+            const dateColumns = [];
+            const textColumns = [];
+            
+            table.columns.forEach((col, index) => {
+                // Sample first few rows to determine column type
+                let isNumeric = true;
+                let isDate = true;
+                
+                for (let i = 0; i < Math.min(5, table.rows.length); i++) {
+                    const value = table.rows[i][index];
+                    if (value !== null && value !== undefined) {
+                        if (isNaN(value)) isNumeric = false;
+                        if (isNaN(Date.parse(value))) isDate = false;
+                    }
+                }
+                
+                if (isNumeric) {
+                    numericColumns.push({ name: col.name, index });
+                } else if (isDate && !isNumeric) {
+                    dateColumns.push({ name: col.name, index });
+                } else {
+                    textColumns.push({ name: col.name, index });
+                }
+            });
+            
+            // Create appropriate chart based on data
+            if (numericColumns.length > 0) {
+                // Use first text/date column as labels, numeric columns as datasets
+                const labelColumn = dateColumns[0] || textColumns[0] || { name: 'Index', index: -1 };
+                const labels = labelColumn.index >= 0 
+                    ? table.rows.slice(0, 50).map(row => row[labelColumn.index] || '')
+                    : table.rows.slice(0, 50).map((_, i) => i + 1);
+                
+                const datasets = numericColumns.slice(0, 3).map((col, i) => ({
+                    label: col.name,
+                    data: table.rows.slice(0, 50).map(row => row[col.index]),
+                    borderColor: ['#0078D4', '#40E0D0', '#FF6B6B'][i],
+                    backgroundColor: ['rgba(0,120,212,0.1)', 'rgba(64,224,208,0.1)', 'rgba(255,107,107,0.1)'][i],
+                    tension: 0.4
+                }));
+                
+                // Determine chart type based on data characteristics
+                const chartType = dateColumns.length > 0 ? 'line' : 'bar';
+                
+                currentChart = new Chart(ctx, {
+                    type: chartType,
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Query Results Visualization'
+                            },
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                
+                updateStatus(`Visualizing ${numericColumns.length} numeric column(s)`, 'success');
+            } else {
+                // Create a simple count chart for text data
+                const countColumn = textColumns[0] || { name: 'Data', index: 0 };
+                const counts = {};
+                
+                table.rows.forEach(row => {
+                    const value = row[countColumn.index] || 'null';
+                    counts[value] = (counts[value] || 0) + 1;
+                });
+                
+                const sortedEntries = Object.entries(counts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10);
+                
+                currentChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: sortedEntries.map(e => e[0]),
+                        datasets: [{
+                            label: 'Count',
+                            data: sortedEntries.map(e => e[1]),
+                            backgroundColor: [
+                                '#0078D4', '#40E0D0', '#FF6B6B', '#FFD93D', 
+                                '#6BCF7F', '#A78BFA', '#F472B6', '#FB923C',
+                                '#10B981', '#6366F1'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Top 10 ${countColumn.name} Values`
+                            },
+                            legend: {
+                                display: true,
+                                position: 'right'
+                            }
+                        }
+                    }
+                });
+                
+                updateStatus('Created distribution chart for categorical data', 'success');
+            }
         }
         
         // Initialize on page load
