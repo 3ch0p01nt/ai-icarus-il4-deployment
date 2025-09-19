@@ -49,7 +49,7 @@ module.exports = async function (context, req) {
             context.log.error('Error listing subscriptions:', error.message);
             
             // Fallback to environment variable or default subscription
-            const defaultSubId = process.env.AZURE_SUBSCRIPTION_ID || '6c030f14-7442-4249-b372-d5628d7cb080';
+            const defaultSubId = process.env.AZURE_SUBSCRIPTION_ID;
             subscriptions.push({
                 id: defaultSubId,
                 name: 'Default Subscription',
