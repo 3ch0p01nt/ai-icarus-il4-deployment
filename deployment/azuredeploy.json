@@ -354,7 +354,7 @@
             },
             {
               "name": "AZURE_TENANT_ID",
-              "value": "[subscription().tenantId]"
+              "value": "[if(empty(parameters('azureAdTenantId')), subscription().tenantId, parameters('azureAdTenantId'))]"
             },
             {
               "name": "AZURE_SUBSCRIPTION_ID",
@@ -363,10 +363,6 @@
             {
               "name": "AZURE_CLIENT_ID",
               "value": "[parameters('azureAdClientId')]"
-            },
-            {
-              "name": "AZURE_TENANT_ID",
-              "value": "[if(empty(parameters('azureAdTenantId')), subscription().tenantId, parameters('azureAdTenantId'))]"
             },
             {
               "name": "ManagementEndpoint",

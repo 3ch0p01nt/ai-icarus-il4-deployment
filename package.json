@@ -1,0 +1,24 @@
+{
+  "name": "ai-icarus-il4-deployment",
+  "version": "1.0.0",
+  "description": "[![Deploy to Azure Government](https://aka.ms/deploytoazurebutton)](https://portal.azure.us/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2F3ch0p01nt%2Fai-icarus-il4-deployment%2Fmain%2Fdeployment%2Fazuredeploy.json)",
+  "main": "test-il4-deployment.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/3ch0p01nt/ai-icarus-il4-deployment.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/3ch0p01nt/ai-icarus-il4-deployment/issues"
+  },
+  "homepage": "https://github.com/3ch0p01nt/ai-icarus-il4-deployment#readme",
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}
