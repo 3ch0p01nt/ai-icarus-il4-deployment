@@ -746,8 +746,13 @@
                 }
                 
                 try {
+                    // Request both user.read and management scopes during login
+                    const scopes = isGovCloud 
+                        ? ["user.read", "https://management.usgovcloudapi.net/user_impersonation"]
+                        : ["user.read", "https://management.azure.com/user_impersonation"];
+                    
                     const loginRequest = {
-                        scopes: ["user.read"]
+                        scopes: scopes
                     };
                     
                     console.log('Opening login popup...');
@@ -993,32 +998,62 @@
                 setError(null);
                 
                 try {
+                    // Check if MSAL is initialized and user is logged in
+                    if (!msalInstance) {
+                        console.error('MSAL not initialized');
+                        setError('Authentication system not initialized. Please refresh the page.');
+                        setLoading(false);
+                        return;
+                    }
+                    
+                    const accounts = msalInstance.getAllAccounts();
+                    console.log(`Found ${accounts.length} account(s) in MSAL`);
+                    
+                    if (accounts.length === 0) {
+                        setError('Please sign in first before discovering workspaces.');
+                        setLoading(false);
+                        return;
+                    }
+                    
                     // Get user's access token from MSAL
                     let accessToken = null;
-                    if (msalInstance) {
+                    const account = accounts[0];
+                    console.log('Using account:', account.username);
+                    
                         try {
-                            const account = msalInstance.getAllAccounts()[0];
-                            if (account) {
-                                const tokenResponse = await msalInstance.acquireTokenSilent({
-                                    scopes: ["https://management.azure.com/user_impersonation"],
-                                    account: account
-                                });
-                                accessToken = tokenResponse.accessToken;
-                                console.log('Got access token for workspace discovery');
-                            }
+                            // Use correct scope for Government cloud
+                            const scopes = isGovCloud 
+                                ? ["https://management.usgovcloudapi.net/user_impersonation"]
+                                : ["https://management.azure.com/user_impersonation"];
+                            
+                            console.log('Requesting token with scopes:', scopes);
+                            
+                            const tokenResponse = await msalInstance.acquireTokenSilent({
+                                scopes: scopes,
+                                account: account
+                            });
+                            accessToken = tokenResponse.accessToken;
+                            console.log('Got access token for workspace discovery');
                         } catch (tokenError) {
-                            console.error('Failed to get access token:', tokenError);
+                            console.error('Failed to get silent token:', tokenError);
                             // Try interactive if silent fails
                             try {
+                                const scopes = isGovCloud 
+                                    ? ["https://management.usgovcloudapi.net/user_impersonation"]
+                                    : ["https://management.azure.com/user_impersonation"];
+                                    
+                                console.log('Requesting interactive token with scopes:', scopes);
+                                
                                 const tokenResponse = await msalInstance.acquireTokenPopup({
-                                    scopes: ["https://management.azure.com/user_impersonation"]
+                                    scopes: scopes
                                 });
                                 accessToken = tokenResponse.accessToken;
+                                console.log('Got access token via popup');
                             } catch (interactiveError) {
                                 console.error('Interactive token acquisition failed:', interactiveError);
+                                setError(`Authentication failed: ${interactiveError.message || 'Unable to acquire token'}`);
                             }
                         }
-                    }
                     
                     if (!accessToken) {
                         setError('Unable to get authentication token. Please sign in again.');
