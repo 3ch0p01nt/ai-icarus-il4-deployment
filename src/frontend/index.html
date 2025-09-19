@@ -711,12 +711,22 @@
                     console.log('MSAL Config:', msalConfig);
                     
                     // Initialize MSAL with the configured settings
-                    msalInstance = new msal.PublicClientApplication(msalConfig);
-                    await msalInstance.initialize();
-                    
-                    const accounts = msalInstance.getAllAccounts();
-                    if (accounts.length > 0) {
-                        setUser(accounts[0]);
+                    try {
+                        msalInstance = new msal.PublicClientApplication(msalConfig);
+                        console.log('MSAL instance created, initializing...');
+                        await msalInstance.initialize();
+                        console.log('MSAL initialized successfully');
+                        
+                        const accounts = msalInstance.getAllAccounts();
+                        console.log(`Found ${accounts.length} cached account(s)`);
+                        if (accounts.length > 0) {
+                            setUser(accounts[0]);
+                        }
+                    } catch (msalError) {
+                        console.error('MSAL initialization failed:', msalError);
+                        // Set a default instance even if initialization fails
+                        msalInstance = null;
+                        setError('Authentication system failed to initialize. Please refresh the page.');
                     }
                 } catch (error) {
                     console.error('App initialization error:', error);
@@ -727,17 +737,27 @@
             };
 
             const handleLogin = async () => {
+                console.log('Login button clicked');
+                
+                if (!msalInstance) {
+                    console.error('MSAL not initialized');
+                    showNotification('error', 'Authentication Error', 'Authentication system not initialized. Please refresh the page.');
+                    return;
+                }
+                
                 try {
                     const loginRequest = {
                         scopes: ["user.read"]
                     };
                     
+                    console.log('Opening login popup...');
                     const loginResponse = await msalInstance.loginPopup(loginRequest);
+                    console.log('Login successful');
                     setUser(loginResponse.account);
                     showNotification('success', 'Welcome!', `Successfully signed in as ${loginResponse.account.username}`);
                 } catch (error) {
                     console.error('Login error:', error);
-                    showNotification('error', 'Authentication Failed', error.message);
+                    showNotification('error', 'Authentication Failed', error.message || 'Failed to sign in');
                 }
             };
 
