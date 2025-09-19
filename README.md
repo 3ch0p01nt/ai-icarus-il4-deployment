@@ -66,9 +66,12 @@ AI-Icarus is a comprehensive web application for Azure OpenAI resource managemen
    - **App Name**: Unique name for your deployment
    - **Location**: Select US Gov Virginia or US Gov Arizona
    - **Environment**: Select "AzureDoD" for IL4
+   - **Azure AD Client ID**: (Optional) Your app registration client ID
+   - **Azure AD Tenant ID**: (Optional) Your tenant ID
 4. Click "Review + Create"
 5. Wait 10-15 minutes for deployment to complete
 6. Access your application at the provided URLs
+7. If you didn't provide authentication details, follow the [Authentication Setup Guide](AUTHENTICATION_SETUP.md)
 
 ### Option 2: PowerShell Deployment
 
@@ -187,6 +190,15 @@ The deployment automatically configures these environment variables:
 ### Post-Deployment Configuration
 
 After deployment completes:
+
+#### Required: Configure Authentication
+
+If you didn't provide authentication parameters during deployment:
+1. Follow the [Authentication Setup Guide](AUTHENTICATION_SETUP.md)
+2. Or run the automated script:
+   ```powershell
+   ./scripts/setup-auth-il4.ps1 -AppName "your-app-name" -ResourceGroupName "your-rg"
+   ```
 
 #### Required: Configure RBAC Permissions
 

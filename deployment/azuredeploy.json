@@ -95,6 +95,20 @@
       "metadata": {
         "description": "Log retention period in days (IL4 requires minimum 365)"
       }
+    },
+    "azureAdClientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Azure AD App Registration Client ID (leave empty to configure later)"
+      }
+    },
+    "azureAdTenantId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Azure AD Tenant ID (leave empty to use subscription tenant)"
+      }
     }
   },
   "variables": {
@@ -347,6 +361,14 @@
               "value": "[subscription().subscriptionId]"
             },
             {
+              "name": "AZURE_CLIENT_ID",
+              "value": "[parameters('azureAdClientId')]"
+            },
+            {
+              "name": "AZURE_TENANT_ID",
+              "value": "[if(empty(parameters('azureAdTenantId')), subscription().tenantId, parameters('azureAdTenantId'))]"
+            },
+            {
               "name": "ManagementEndpoint",
               "value": "[variables('selectedEndpoints').management]"
             },
@@ -422,7 +444,7 @@
             },
             {
               "name": "AZURE_CLIENT_ID",
-              "value": ""
+              "value": "[parameters('azureAdClientId')]"
             },
             {
               "name": "ManagementEndpoint",
